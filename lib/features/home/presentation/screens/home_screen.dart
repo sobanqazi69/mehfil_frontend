@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
 import '../../../auth/presentation/cubits/auth_cubit.dart';
 import '../../../auth/presentation/cubits/auth_state.dart';
-import '../../../rooms/presentation/cubits/room_list_cubit.dart';
 import '../../../rooms/presentation/screens/browse_rooms_screen.dart';
 import '../../../rooms/presentation/screens/my_rooms_screen.dart';
-import '../../../rooms/presentation/screens/create_room_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   final void Function(int roomId) onRoomTap;
@@ -37,7 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
         current: _tab,
         onTap: (i) => setState(() => _tab = i),
       ),
-      floatingActionButton: _CreateRoomFab(onRoomTap: widget.onRoomTap),
+      floatingActionButton: _CreateRoomFab(),
     );
   }
 }
@@ -181,13 +180,12 @@ class _BottomNav extends StatelessWidget {
 }
 
 class _CreateRoomFab extends StatelessWidget {
-  final void Function(int) onRoomTap;
-  const _CreateRoomFab({required this.onRoomTap});
+  const _CreateRoomFab();
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _showCreateRoom(context),
+      onTap: () => context.push('/youtube-picker'),
       child: Container(
         width: 56,
         height: 56,
@@ -196,25 +194,13 @@ class _CreateRoomFab extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: AppColors.purple.withOpacity(0.4),
+              color: AppColors.purple.withValues(alpha: 0.45),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
           ],
         ),
         child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
-      ),
-    );
-  }
-
-  void _showCreateRoom(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => BlocProvider.value(
-        value: context.read<RoomListCubit>(),
-        child: CreateRoomSheet(onRoomCreated: onRoomTap),
       ),
     );
   }

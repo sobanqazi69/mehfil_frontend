@@ -6,7 +6,6 @@ import '../../../../config/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../cubits/room_list_cubit.dart';
 import '../cubits/room_list_state.dart';
-import '../widgets/category_chip.dart';
 import '../widgets/room_card.dart';
 
 class BrowseRoomsScreen extends StatefulWidget {
@@ -28,9 +27,7 @@ class _BrowseRoomsScreenState extends State<BrowseRoomsScreen> {
   Widget build(BuildContext context) {
     return BlocConsumer<RoomListCubit, RoomListState>(
       listener: (context, state) {
-        if (state is RoomListError) {
-          AppSnackbar.error(context, state.message);
-        }
+        if (state is RoomListError) AppSnackbar.error(context, state.message);
       },
       builder: (context, state) {
         return RefreshIndicator(
@@ -39,18 +36,6 @@ class _BrowseRoomsScreenState extends State<BrowseRoomsScreen> {
           onRefresh: () => context.read<RoomListCubit>().refresh(),
           child: CustomScrollView(
             slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 12),
-                  child: CategoryChipRow(
-                    selected: state is RoomListLoaded
-                        ? state.selectedCategory
-                        : 'All',
-                    onSelect: (cat) =>
-                        context.read<RoomListCubit>().changeCategory(cat),
-                  ),
-                ),
-              ),
               if (state is RoomListLoading)
                 SliverPadding(
                   padding: const EdgeInsets.all(16),
@@ -65,15 +50,14 @@ class _BrowseRoomsScreenState extends State<BrowseRoomsScreen> {
                 SliverFillRemaining(child: _EmptyState())
               else if (state is RoomListLoaded)
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (_, i) => Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: RoomCard(
                           room: state.rooms[i],
-                          onTap: () =>
-                              widget.onRoomTap(state.rooms[i].id),
+                          onTap: () => widget.onRoomTap(state.rooms[i].id),
                         ),
                       ),
                       childCount: state.rooms.length,
@@ -95,12 +79,23 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.headphones_outlined,
-              size: 64, color: AppColors.grey.withOpacity(0.4)),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppColors.purple.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.headphones_outlined,
+              size: 40,
+              color: AppColors.purple.withValues(alpha: 0.5),
+            ),
+          ),
           const SizedBox(height: 16),
           Text('No rooms yet', style: AppTextStyles.bodyLarge),
           const SizedBox(height: 6),
-          Text('Be the first to create one!',
+          Text('Be the first to start a watch party!',
               style: AppTextStyles.bodySmall),
         ],
       ),

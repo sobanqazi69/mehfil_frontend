@@ -10,6 +10,7 @@ import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/rooms/data/repositories/room_repository.dart';
 import '../../features/rooms/presentation/cubits/room_cubit.dart';
 import '../../features/rooms/presentation/screens/room_screen.dart';
+import '../../features/rooms/presentation/screens/youtube_picker_screen.dart';
 import '../../features/splash/presentation/screens/splash_screen.dart';
 
 GoRouter buildAppRouter() {
@@ -43,6 +44,10 @@ GoRouter buildAppRouter() {
         builder: (context, _) => HomeScreen(
           onRoomTap: (id) => context.push('/room/$id'),
         ),
+      ),
+      GoRoute(
+        path: '/youtube-picker',
+        builder: (_, __) => const YoutubePickerScreen(),
       ),
       GoRoute(
         path: '/room/:id',

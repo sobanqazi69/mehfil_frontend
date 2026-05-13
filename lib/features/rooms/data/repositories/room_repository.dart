@@ -15,15 +15,9 @@ class RoomRepository {
 
   // ── REST ────────────────────────────────────────────────────────────
 
-  Future<List<RoomModel>> browseRooms({
-    int page = 1,
-    String? category,
-  }) async {
+  Future<List<RoomModel>> browseRooms({int page = 1}) async {
     try {
-      final res = await _api.get(ApiEndpoints.rooms, params: {
-        'page': page,
-        if (category != null && category != 'All') 'category': category,
-      });
+      final res = await _api.get(ApiEndpoints.rooms, params: {'page': page});
       final list = (res.data['rooms'] as List?) ?? [];
       return list
           .map((e) => RoomModel.fromJson(e as Map<String, dynamic>))
@@ -49,14 +43,12 @@ class RoomRepository {
 
   Future<RoomModel> createRoom({
     required String name,
-    bool isPublic = true,
-    String? category,
+    required String youtubeId,
   }) async {
     try {
       final res = await _api.post(ApiEndpoints.rooms, data: {
         'name': name,
-        'isPublic': isPublic,
-        if (category != null) 'category': category,
+        'youtubeId': youtubeId,
       });
       return RoomModel.fromJson(res.data as Map<String, dynamic>);
     } on DioException catch (e) {

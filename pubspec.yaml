@@ -36,6 +36,9 @@ dependencies:
   # LiveKit voice
   livekit_client: ^2.3.3
 
+  # WebView (YouTube picker)
+  webview_flutter: ^4.9.0
+
   # DI
   get_it: ^8.0.0
 
