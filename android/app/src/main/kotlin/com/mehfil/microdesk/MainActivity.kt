@@ -1,4 +1,4 @@
-package com.mehfil.mehfil_frontend
+package com.mehfil.microdesk
 
 import io.flutter.embedding.android.FlutterActivity
 
