@@ -25,7 +25,7 @@ Future<void> setupServiceLocator() async {
 
   // Cubits as singletons so go_router can access AuthCubit for auth redirect
   sl.registerLazySingleton<AuthCubit>(
-    () => AuthCubit(sl(), sl()),
+    () => AuthCubit(sl(), sl(), sl()),
   );
   sl.registerLazySingleton<RoomListCubit>(
     () => RoomListCubit(sl()),

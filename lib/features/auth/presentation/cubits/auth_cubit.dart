@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/network/socket_service.dart';
+import '../../../../core/services/secure_storage_service.dart';
 import '../../../../core/utils/debug_logger.dart';
 import '../../data/repositories/auth_repository.dart';
 import 'auth_state.dart';
@@ -8,6 +9,7 @@ import 'auth_state.dart';
 class AuthCubit extends Cubit<AuthState> {
   final AuthRepository _repo;
   final SocketService _socket;
+  final SecureStorageService _storage;
 
   static final _googleSignIn = GoogleSignIn(
     serverClientId:
@@ -15,7 +17,8 @@ class AuthCubit extends Cubit<AuthState> {
     scopes: ['email', 'profile'],
   );
 
-  AuthCubit(this._repo, this._socket) : super(const AuthInitial());
+  AuthCubit(this._repo, this._socket, this._storage)
+      : super(const AuthInitial());
 
   Future<void> checkAuth() async {
     try {
@@ -24,6 +27,7 @@ class AuthCubit extends Cubit<AuthState> {
       final user = await _repo.getMe();
       if (isClosed) return;
       if (user != null) {
+        await _connectSocket();
         emit(AuthAuthenticated(user));
       } else {
         emit(const AuthUnauthenticated());
@@ -54,6 +58,7 @@ class AuthCubit extends Cubit<AuthState> {
 
       final user = await _repo.signInWithGoogle(idToken);
       if (isClosed) return;
+      await _connectSocket();
       emit(AuthAuthenticated(user));
     } catch (e) {
       DebugLogger.error('signInWithGoogle failed', error: e);
@@ -72,9 +77,14 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  void updateUser(user) {
+  void updateUser(dynamic user) {
     if (!isClosed && state is AuthAuthenticated) {
       emit(AuthAuthenticated(user));
     }
+  }
+
+  Future<void> _connectSocket() async {
+    final token = await _storage.getAccessToken();
+    if (token != null) _socket.connect(token);
   }
 }
