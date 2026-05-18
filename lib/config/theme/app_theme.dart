@@ -6,62 +6,72 @@ import 'app_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get dark => ThemeData(
+  static ThemeData get light => ThemeData(
         useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: AppColors.darkBg,
-        colorScheme: const ColorScheme.dark(
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: AppColors.lightBg,
+        colorScheme: const ColorScheme.light(
           primary: AppColors.cyan,
           secondary: AppColors.purple,
-          surface: AppColors.cardBg,
+          surface: AppColors.white,
           error: AppColors.error,
+          onSurface: AppColors.slate,
         ),
-        textTheme: GoogleFonts.poppinsTextTheme(
-          ThemeData.dark().textTheme,
-        ),
+        textTheme: GoogleFonts.poppinsTextTheme(ThemeData.light().textTheme),
         appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.darkBg,
+          backgroundColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
           systemOverlayStyle: SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.light,
+            statusBarIconBrightness: Brightness.dark,
           ),
-          iconTheme: IconThemeData(color: AppColors.white),
+          iconTheme: IconThemeData(color: AppColors.slate),
+          titleTextStyle: TextStyle(
+            color: AppColors.slate,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: AppColors.cardBg,
+          backgroundColor: AppColors.white,
           selectedItemColor: AppColors.cyan,
           unselectedItemColor: AppColors.grey,
           type: BottomNavigationBarType.fixed,
-          elevation: 0,
+          elevation: 10,
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: AppColors.cardBg,
+          fillColor: AppColors.white,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(color: AppColors.fieldBorder),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(color: AppColors.fieldBorder),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.cyan, width: 1.5),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: AppColors.cyan, width: 2),
           ),
-          hintStyle: GoogleFonts.poppins(color: AppColors.grey, fontSize: 14),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          hintStyle:
+              GoogleFonts.poppins(color: AppColors.grey, fontSize: 14),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.cyan,
-            foregroundColor: AppColors.darkBg,
-            elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15),
+            foregroundColor: AppColors.white,
+            elevation: 4,
+            shadowColor: AppColors.cyan.withValues(alpha: 0.3),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            textStyle: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600, fontSize: 15),
           ),
         ),
         dividerTheme: const DividerThemeData(
@@ -70,10 +80,20 @@ class AppTheme {
           space: 1,
         ),
         bottomSheetTheme: const BottomSheetThemeData(
-          backgroundColor: AppColors.cardBg,
+          backgroundColor: AppColors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
           ),
+          surfaceTintColor: Colors.transparent,
+        ),
+        dialogTheme: DialogThemeData(
+          backgroundColor: AppColors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(32)),
         ),
       );
+
+  // Keep dark alias but map to light for now as requested by user to change complete UI
+  static ThemeData get dark => light; 
 }

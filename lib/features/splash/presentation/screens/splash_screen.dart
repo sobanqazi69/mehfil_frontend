@@ -51,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen>
         }
       },
       child: Scaffold(
-        backgroundColor: AppColors.darkBg,
+        backgroundColor: AppColors.lightBg,
         body: Center(
           child: FadeTransition(
             opacity: _fade,

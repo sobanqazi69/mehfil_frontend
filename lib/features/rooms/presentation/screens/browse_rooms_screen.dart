@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
@@ -16,11 +17,36 @@ class BrowseRoomsScreen extends StatefulWidget {
   State<BrowseRoomsScreen> createState() => _BrowseRoomsScreenState();
 }
 
-class _BrowseRoomsScreenState extends State<BrowseRoomsScreen> {
+class _BrowseRoomsScreenState extends State<BrowseRoomsScreen>
+    with WidgetsBindingObserver {
+  Timer? _refreshTimer;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     context.read<RoomListCubit>().loadRooms();
+    _startRefreshTimer();
+  }
+
+  void _startRefreshTimer() {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) context.read<RoomListCubit>().refresh(silent: true);
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<RoomListCubit>().refresh(silent: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -83,13 +109,13 @@ class _EmptyState extends StatelessWidget {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: AppColors.purple.withValues(alpha: 0.1),
+              color: AppColors.cyan.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.headphones_outlined,
               size: 40,
-              color: AppColors.purple.withValues(alpha: 0.5),
+              color: AppColors.cyan.withValues(alpha: 0.5),
             ),
           ),
           const SizedBox(height: 16),
@@ -111,7 +137,7 @@ class _RoomCardShimmer extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Shimmer.fromColors(
-        baseColor: AppColors.cardBg,
+        baseColor: AppColors.white,
         highlightColor: AppColors.cardBg2,
         child: Container(
           height: 100,

@@ -46,12 +46,17 @@ class RoomCubit extends Cubit<RoomState> {
     _repo.onMicState(_onMicState);
     _repo.onMicMutedAll(_onMicMutedAll);
     _repo.onVideoState(_onVideoState);
+    _repo.onSettingsUpdated(_onSettingsUpdated);
   }
 
-  void _onMembers(List<RoomMemberModel> members) {
+  void _onMembers(List<RoomMemberModel> members, int? hostId) {
     if (isClosed) return;
     if (state is RoomLoaded) {
-      emit((state as RoomLoaded).copyWith(members: members));
+      final s = state as RoomLoaded;
+      emit(s.copyWith(
+        members: members,
+        room: hostId != null ? s.room.copyWith(hostId: hostId) : s.room,
+      ));
     }
   }
 
@@ -79,6 +84,14 @@ class RoomCubit extends Cubit<RoomState> {
     }
   }
 
+  void _onSettingsUpdated(bool isPublic) {
+    if (isClosed) return;
+    if (state is RoomLoaded) {
+      final s = state as RoomLoaded;
+      emit(s.copyWith(room: s.room.copyWith(isPublic: isPublic)));
+    }
+  }
+
   void _onVideoState(Map<String, dynamic> data) {
     if (isClosed) return;
     if (state is RoomLoaded) {
@@ -86,7 +99,8 @@ class RoomCubit extends Cubit<RoomState> {
       emit(s.copyWith(
         room: s.room.copyWith(
           youtubeId: data['youtubeId'] as String?,
-          timestampSec: (data['timestampSec'] as num?)?.toDouble() ?? 0,
+          nextYoutubeId: data['nextYoutubeId'] as String?,
+          timestampSec: (data['timestampSec'] ?? data['timestamp'] as num?)?.toDouble() ?? 0,
           isPlaying: data['isPlaying'] as bool? ?? false,
         ),
       ));
@@ -127,6 +141,21 @@ class RoomCubit extends Cubit<RoomState> {
       _repo.offRoomListeners();
     }
     if (!isClosed) emit(const RoomInitial());
+  }
+
+  void updateSettings({bool? isPublic}) {
+    if (_roomId == null || state is! RoomLoaded) return;
+    if (isPublic != null) {
+      _repo.updateSettings(_roomId!, isPublic);
+      // Optimistic update
+      final s = state as RoomLoaded;
+      emit(s.copyWith(room: s.room.copyWith(isPublic: isPublic)));
+    }
+  }
+
+  void queueVideo(String youtubeId) {
+    if (_roomId == null) return;
+    _repo.queueVideo(_roomId!, youtubeId);
   }
 
   @override

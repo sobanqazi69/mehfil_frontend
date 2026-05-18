@@ -9,10 +9,12 @@ class RoomListCubit extends Cubit<RoomListState> {
 
   RoomListCubit(this._repo) : super(const RoomListInitial());
 
-  Future<void> loadRooms() async {
+  Future<void> loadRooms({bool silent = false}) async {
     try {
       if (isClosed) return;
-      emit(const RoomListLoading());
+      if (!silent || state is! RoomListLoaded) {
+        emit(const RoomListLoading());
+      }
       final rooms = await _repo.browseRooms();
       if (!isClosed) emit(RoomListLoaded(rooms: rooms));
     } catch (e) {
@@ -21,10 +23,12 @@ class RoomListCubit extends Cubit<RoomListState> {
     }
   }
 
-  Future<void> loadMyRooms() async {
+  Future<void> loadMyRooms({bool silent = false}) async {
     try {
       if (isClosed) return;
-      emit(const RoomListLoading());
+      if (!silent || state is! RoomListLoaded) {
+        emit(const RoomListLoading());
+      }
       final rooms = await _repo.getMyRooms();
       if (!isClosed) emit(RoomListLoaded(rooms: rooms));
     } catch (e) {
@@ -33,7 +37,7 @@ class RoomListCubit extends Cubit<RoomListState> {
     }
   }
 
-  Future<void> refresh() async => loadRooms();
+  Future<void> refresh({bool silent = false}) async => loadRooms(silent: silent);
 
   Future<RoomModel> createRoom({
     required String name,

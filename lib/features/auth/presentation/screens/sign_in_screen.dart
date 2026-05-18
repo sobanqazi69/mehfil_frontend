@@ -13,71 +13,180 @@ class SignInScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocListener<AuthCubit, AuthState>(
       listener: (context, state) {
-        if (state is AuthError) {
-          AppSnackbar.error(context, state.message);
-        }
+        if (state is AuthError) AppSnackbar.error(context, state.message);
       },
       child: Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(gradient: AppColors.bgGradient),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                children: [
-                  const Spacer(flex: 2),
-                  _Logo(),
-                  const SizedBox(height: 16),
-                  Text('Mehfil', style: AppTextStyles.heading1),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Audio rooms · YouTube together · Open mic',
-                    style: AppTextStyles.bodySmall
-                        .copyWith(color: AppColors.grey),
-                    textAlign: TextAlign.center,
-                  ),
-                  const Spacer(flex: 3),
-                  _GoogleSignInButton(),
-                  const SizedBox(height: 24),
-                  Text(
-                    'By signing in, you agree to our Terms of Service',
-                    style: AppTextStyles.labelSmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  const Spacer(),
-                ],
+        backgroundColor: AppColors.lightBg,
+        body: Stack(
+          children: [
+            const _MeshBackground(),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  children: [
+                    const Spacer(flex: 2),
+                    const _LogoSection(),
+                    const Spacer(flex: 3),
+                    const _GoogleSignInButton(),
+                    const SizedBox(height: 24),
+                    Text(
+                      'By signing in you agree to our Terms of Service',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: AppColors.grey.withValues(alpha: 0.8),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const Spacer(),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _Logo extends StatelessWidget {
+// ── Glowing orb mesh background ───────────────────────────────────────────
+
+class _MeshBackground extends StatelessWidget {
+  const _MeshBackground();
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 90,
-      height: 90,
-      decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-              color: AppColors.purple.withOpacity(0.5),
-              blurRadius: 30,
-              spreadRadius: 4),
+    final size = MediaQuery.of(context).size;
+    return SizedBox.expand(
+      child: Stack(
+        children: [
+          // Blue orb — top left
+          Positioned(
+            top: -size.height * 0.15,
+            left: -size.width * 0.25,
+            child: _Orb(
+              size: size.width * 0.9,
+              color: AppColors.cyan.withValues(alpha: 0.08),
+            ),
+          ),
+          // Indigo orb — bottom right
+          Positioned(
+            bottom: -size.height * 0.12,
+            right: -size.width * 0.3,
+            child: _Orb(
+              size: size.width * 1.0,
+              color: AppColors.purple.withValues(alpha: 0.06),
+            ),
+          ),
         ],
       ),
-      child: const Icon(Icons.headphones_rounded,
-          color: AppColors.white, size: 44),
     );
   }
 }
 
+class _Orb extends StatelessWidget {
+  final double size;
+  final Color color;
+  const _Orb({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        boxShadow: [
+          BoxShadow(
+            color: color,
+            blurRadius: 100,
+            spreadRadius: 20,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Logo + branding ───────────────────────────────────────────────────────
+
+class _LogoSection extends StatelessWidget {
+  const _LogoSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.cyan.withValues(alpha: 0.06),
+              ),
+            ),
+            Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.cyan.withValues(alpha: 0.3),
+                    blurRadius: 40,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.headphones_rounded,
+                color: Colors.white,
+                size: 44,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
+        Text('Mehfil', style: AppTextStyles.heading1.copyWith(fontSize: 40)),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.fieldBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Text(
+            'Watch Party  ·  Music  ·  Friends',
+            style: AppTextStyles.labelMedium.copyWith(
+              color: AppColors.grey,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Google sign-in button ─────────────────────────────────────────────────
+
 class _GoogleSignInButton extends StatelessWidget {
+  const _GoogleSignInButton();
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AuthCubit, AuthState>(
@@ -90,16 +199,20 @@ class _GoogleSignInButton extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             width: double.infinity,
-            height: 56,
+            height: 64,
             decoration: BoxDecoration(
-              color: AppColors.cardBg,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.fieldBorder, width: 1.5),
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AppColors.fieldBorder,
+                width: 1.5,
+              ),
               boxShadow: [
                 BoxShadow(
-                    color: AppColors.cyan.withOpacity(0.1),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4)),
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
               ],
             ),
             child: isLoading
@@ -109,8 +222,7 @@ class _GoogleSignInButton extends StatelessWidget {
                       height: 24,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        valueColor:
-                            AlwaysStoppedAnimation(AppColors.cyan),
+                        valueColor: AlwaysStoppedAnimation(AppColors.cyan),
                       ),
                     ),
                   )
@@ -118,10 +230,14 @@ class _GoogleSignInButton extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _GoogleIcon(),
-                      const SizedBox(width: 12),
-                      Text('Continue with Google',
-                          style: AppTextStyles.button
-                              .copyWith(color: AppColors.white)),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Continue with Google',
+                        style: AppTextStyles.button.copyWith(
+                          color: AppColors.slate,
+                          fontSize: 17,
+                        ),
+                      ),
                     ],
                   ),
           ),
@@ -135,17 +251,20 @@ class _GoogleIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 26,
-      height: 26,
-      decoration: const BoxDecoration(
-          shape: BoxShape.circle, color: Colors.white),
-      padding: const EdgeInsets.all(3),
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.white,
+        border: Border.all(color: AppColors.fieldBorder.withValues(alpha: 0.5)),
+      ),
+      padding: const EdgeInsets.all(6),
       child: Image.network(
         'https://www.google.com/favicon.ico',
         errorBuilder: (_, __, ___) => const Icon(
           Icons.g_mobiledata_rounded,
-          color: AppColors.darkBg,
-          size: 20,
+          color: Color(0xFF4285F4),
+          size: 22,
         ),
       ),
     );

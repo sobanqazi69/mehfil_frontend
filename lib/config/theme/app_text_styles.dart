@@ -6,23 +6,25 @@ class AppTextStyles {
   AppTextStyles._();
 
   static TextStyle heading1 = GoogleFonts.poppins(
-    fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.white,
+    fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.slate,
+    letterSpacing: -0.5,
   );
 
   static TextStyle heading2 = GoogleFonts.poppins(
-    fontSize: 22, fontWeight: FontWeight.w600, color: AppColors.white,
+    fontSize: 22, fontWeight: FontWeight.w600, color: AppColors.slate,
+    letterSpacing: -0.3,
   );
 
   static TextStyle heading3 = GoogleFonts.poppins(
-    fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.white,
+    fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.slate,
   );
 
   static TextStyle bodyLarge = GoogleFonts.poppins(
-    fontSize: 16, fontWeight: FontWeight.w400, color: AppColors.white,
+    fontSize: 16, fontWeight: FontWeight.w400, color: AppColors.slate,
   );
 
   static TextStyle bodyMedium = GoogleFonts.poppins(
-    fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.white,
+    fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.slate,
   );
 
   static TextStyle bodySmall = GoogleFonts.poppins(
@@ -30,7 +32,7 @@ class AppTextStyles {
   );
 
   static TextStyle labelMedium = GoogleFonts.poppins(
-    fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.white,
+    fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.slate,
   );
 
   static TextStyle labelSmall = GoogleFonts.poppins(

@@ -23,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.darkBg,
+      backgroundColor: AppColors.lightBg,
       appBar: _AppBar(tab: _tab),
       body: IndexedStack(
         index: _tab,
@@ -48,7 +48,7 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: AppColors.darkBg,
+      backgroundColor: AppColors.lightBg,
       elevation: 0,
       titleSpacing: 20,
       title: Row(
@@ -147,9 +147,9 @@ class _BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        border: const Border(top: BorderSide(color: AppColors.divider)),
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        border: Border(top: BorderSide(color: AppColors.fieldBorder)),
       ),
       child: BottomNavigationBar(
         currentIndex: current,

@@ -6,9 +6,11 @@ class RoomModel extends Equatable {
   final int id;
   final String name;
   final int hostId;
+  final int creatorId;
   final bool isPublic;
   final String? category;
   final String? youtubeId;
+  final String? nextYoutubeId;
   final double timestampSec;
   final bool isPlaying;
   final bool isLive;
@@ -20,9 +22,11 @@ class RoomModel extends Equatable {
     required this.id,
     required this.name,
     required this.hostId,
+    required this.creatorId,
     this.isPublic = true,
     this.category,
     this.youtubeId,
+    this.nextYoutubeId,
     this.timestampSec = 0,
     this.isPlaying = false,
     this.isLive = true,
@@ -40,9 +44,11 @@ class RoomModel extends Equatable {
         id: MapUtils.handleNullableIntKey(json, 'id') ?? 0,
         name: MapUtils.handleNullableStringKey(json, 'name') ?? '',
         hostId: MapUtils.handleNullableIntKey(json, 'hostId') ?? 0,
+        creatorId: MapUtils.handleNullableIntKey(json, 'creatorId') ?? 0,
         isPublic: MapUtils.handleNullableBoolKey(json, 'isPublic') ?? true,
         category: MapUtils.handleNullableStringKey(json, 'category'),
         youtubeId: MapUtils.handleNullableStringKey(json, 'youtubeId'),
+        nextYoutubeId: MapUtils.handleNullableStringKey(json, 'nextYoutubeId'),
         timestampSec:
             MapUtils.handleNullableDoubleKey(json, 'timestampSec') ?? 0,
         isPlaying: MapUtils.handleNullableBoolKey(json, 'isPlaying') ?? false,
@@ -57,12 +63,17 @@ class RoomModel extends Equatable {
       return RoomModel(
           id: 0,
           name: MapUtils.handleNullableStringKey(json, 'name') ?? '',
-          hostId: 0);
+          hostId: 0,
+          creatorId: 0);
     }
   }
 
   RoomModel copyWith({
+    int? hostId,
+    int? creatorId,
     String? youtubeId,
+    String? nextYoutubeId,
+    bool? isPublic,
     double? timestampSec,
     bool? isPlaying,
     bool? isLive,
@@ -71,10 +82,12 @@ class RoomModel extends Equatable {
     return RoomModel(
       id: id,
       name: name,
-      hostId: hostId,
-      isPublic: isPublic,
+      hostId: hostId ?? this.hostId,
+      creatorId: creatorId ?? this.creatorId,
+      isPublic: isPublic ?? this.isPublic,
       category: category,
       youtubeId: youtubeId ?? this.youtubeId,
+      nextYoutubeId: nextYoutubeId ?? this.nextYoutubeId,
       timestampSec: timestampSec ?? this.timestampSec,
       isPlaying: isPlaying ?? this.isPlaying,
       isLive: isLive ?? this.isLive,
@@ -85,6 +98,17 @@ class RoomModel extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [id, name, hostId, youtubeId, isPlaying, isLive, memberCount];
+  List<Object?> get props => [
+        id,
+        name,
+        hostId,
+        creatorId,
+        isPublic,
+        youtubeId,
+        nextYoutubeId,
+        timestampSec,
+        isPlaying,
+        isLive,
+        memberCount
+      ];
 }

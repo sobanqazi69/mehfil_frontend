@@ -75,7 +75,7 @@ class ParticipantTile extends StatelessWidget {
             style: AppTextStyles.labelSmall.copyWith(
               color: isMuted
                   ? AppColors.grey
-                  : AppColors.white,
+                  : AppColors.slate,
               fontWeight:
                   isMuted ? FontWeight.w400 : FontWeight.w600,
             ),
@@ -169,9 +169,9 @@ class _MicBadge extends StatelessWidget {
       width: 20,
       height: 20,
       decoration: BoxDecoration(
-        color: isMuted ? AppColors.cardBg : AppColors.cyan,
+        color: isMuted ? AppColors.white : AppColors.cyan,
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.darkBg, width: 1.5),
+        border: Border.all(color: AppColors.lightBg, width: 1.5),
         boxShadow: isMuted
             ? null
             : [
@@ -197,7 +197,7 @@ class _Initial extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.purple.withValues(alpha: 0.4),
+      color: AppColors.cyan.withValues(alpha: 0.12),
       child: Center(
         child: Text(
           name.isNotEmpty ? name[0].toUpperCase() : '?',

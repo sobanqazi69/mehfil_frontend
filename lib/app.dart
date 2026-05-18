@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'config/routes/app_router.dart';
 import 'config/theme/app_theme.dart';
@@ -18,6 +19,12 @@ class _MehfilAppState extends State<MehfilApp> {
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+    );
     return MultiBlocProvider(
       providers: [
         BlocProvider.value(value: sl<AuthCubit>()),
@@ -26,7 +33,7 @@ class _MehfilAppState extends State<MehfilApp> {
       child: MaterialApp.router(
         title: 'Mehfil',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark,
+        theme: AppTheme.light,
         routerConfig: _router,
       ),
     );

@@ -132,7 +132,16 @@ class RoomRepository {
         {'roomId': roomId, 'timestamp': timestamp, 'isPlaying': isPlaying});
   }
 
-  void onRoomMembers(Function(List<RoomMemberModel>) callback) {
+  void queueVideo(int roomId, String youtubeId) {
+    _socket.emit('video:queue', {'roomId': roomId, 'nextYoutubeId': youtubeId});
+  }
+
+  void updateSettings(int roomId, bool isPublic) {
+    _socket.emit('room:update_settings',
+        {'roomId': roomId, 'isPublic': isPublic});
+  }
+
+  void onRoomMembers(Function(List<RoomMemberModel>, int? hostId) callback) {
     _socket.on('room:members', (data) {
       try {
         final members = (data['members'] as List?)
@@ -140,7 +149,8 @@ class RoomRepository {
                     e as Map<String, dynamic>))
                 .toList() ??
             [];
-        callback(members);
+        final hostId = data['hostId'] as int?;
+        callback(members, hostId);
       } catch (e) {
         DebugLogger.error('onRoomMembers parse error', error: e);
       }
@@ -183,12 +193,24 @@ class RoomRepository {
     _socket.on('mic:muted_all', (_) => callback());
   }
 
+  void onSettingsUpdated(Function(bool isPublic) callback) {
+    _socket.on('room:settings_updated', (data) {
+      try {
+        final isPublic = data['isPublic'] as bool? ?? true;
+        callback(isPublic);
+      } catch (e) {
+        DebugLogger.error('onSettingsUpdated parse error', error: e);
+      }
+    });
+  }
+
   void offRoomListeners() {
     _socket.off('room:members');
     _socket.off('video:state');
     _socket.off('chat:message');
     _socket.off('mic:state');
     _socket.off('mic:muted_all');
+    _socket.off('room:settings_updated');
   }
 
   String _parseError(DioException e) =>
