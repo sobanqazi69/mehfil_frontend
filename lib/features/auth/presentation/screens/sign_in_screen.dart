@@ -131,23 +131,23 @@ class _LogoSection extends StatelessWidget {
               ),
             ),
             Container(
-              width: 90,
-              height: 90,
+              width: 96,
+              height: 96,
               decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
+                color: Colors.black,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.cyan.withValues(alpha: 0.3),
-                    blurRadius: 40,
-                    offset: const Offset(0, 10),
+                    blurRadius: 30,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.headphones_rounded,
-                color: Colors.white,
-                size: 44,
+              padding: const EdgeInsets.all(12),
+              child: Image.asset(
+                'assets/images/logo_transparent.png',
+                fit: BoxFit.contain,
               ),
             ),
           ],

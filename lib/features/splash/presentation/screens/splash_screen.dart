@@ -61,16 +61,23 @@ class _SplashScreenState extends State<SplashScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 88,
-                    height: 88,
-                    decoration: const BoxDecoration(
-                      gradient: AppColors.primaryGradient,
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      color: Colors.black,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.cyan.withValues(alpha: 0.25),
+                          blurRadius: 24,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
-                    child: const Icon(
-                      Icons.headphones_rounded,
-                      color: Colors.white,
-                      size: 44,
+                    padding: const EdgeInsets.all(12),
+                    child: Image.asset(
+                      'assets/images/logo_transparent.png',
+                      fit: BoxFit.contain,
                     ),
                   ),
                   const SizedBox(height: 24),

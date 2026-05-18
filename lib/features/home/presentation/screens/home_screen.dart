@@ -57,11 +57,14 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
             width: 32,
             height: 32,
             decoration: const BoxDecoration(
-              gradient: AppColors.primaryGradient,
+              color: Colors.black,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.headphones_rounded,
-                color: Colors.white, size: 18),
+            padding: const EdgeInsets.all(4),
+            child: Image.asset(
+              'assets/images/logo_transparent.png',
+              fit: BoxFit.contain,
+            ),
           ),
           const SizedBox(width: 10),
           Text('Mehfil', style: AppTextStyles.heading3),
