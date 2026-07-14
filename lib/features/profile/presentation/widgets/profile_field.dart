@@ -14,6 +14,7 @@ class ProfileField extends StatelessWidget {
   final String? errorText;
   final String? helperText;
   final int? maxLength;
+  final int maxLines;
   final Widget? suffix;
   final List<TextInputFormatter>? inputFormatters;
   final ValueChanged<String>? onChanged;
@@ -28,6 +29,7 @@ class ProfileField extends StatelessWidget {
     this.errorText,
     this.helperText,
     this.maxLength,
+    this.maxLines = 1,
     this.suffix,
     this.inputFormatters,
     this.onChanged,
@@ -55,19 +57,33 @@ class ProfileField extends StatelessWidget {
           onChanged: onChanged,
           inputFormatters: inputFormatters,
           maxLength: maxLength,
+          maxLines: maxLines,
+          // Multi-line fields grow downward, so keep the icon at the top.
+          textAlignVertical:
+              maxLines > 1 ? TextAlignVertical.top : TextAlignVertical.center,
           style: AppTextStyles.bodyMedium.copyWith(color: AppColors.slate),
           decoration: InputDecoration(
             counterText: '',
+            alignLabelWithHint: maxLines > 1,
             filled: true,
             fillColor: AppColors.cardBg,
             hintText: hint,
             hintStyle:
                 AppTextStyles.bodyMedium.copyWith(color: AppColors.greyLight),
-            prefixIcon: Icon(
-              icon,
-              size: 20,
-              color: hasError ? AppColors.error : AppColors.grey,
-            ),
+            prefixIcon: maxLines > 1
+                ? Padding(
+                    padding: const EdgeInsets.only(bottom: 34),
+                    child: Icon(
+                      icon,
+                      size: 20,
+                      color: hasError ? AppColors.error : AppColors.grey,
+                    ),
+                  )
+                : Icon(
+                    icon,
+                    size: 20,
+                    color: hasError ? AppColors.error : AppColors.grey,
+                  ),
             prefixText: prefixText,
             prefixStyle:
                 AppTextStyles.bodyMedium.copyWith(color: AppColors.grey),

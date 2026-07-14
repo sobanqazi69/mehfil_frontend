@@ -11,6 +11,7 @@ import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/cubits/auth_cubit.dart';
 import '../../../auth/presentation/cubits/auth_state.dart';
 import '../../../rooms/presentation/cubits/room_list_cubit.dart';
+import '../../../profile/presentation/widgets/profile_drawer.dart';
 import '../../../rooms/presentation/screens/browse_rooms_screen.dart';
 import '../../../rooms/presentation/screens/youtube_picker_screen.dart';
 
@@ -23,6 +24,7 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.lightBg,
       appBar: const _AppBar(),
+      endDrawer: const ProfileDrawer(),
       body: BrowseRoomsScreen(onRoomTap: onRoomTap),
       floatingActionButton: _CreateRoomFab(),
     );
@@ -64,7 +66,7 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
                 ? state.user.avatar
                 : null;
             return GestureDetector(
-              onTap: () => _showProfileMenu(context),
+              onTap: () => Scaffold.of(context).openEndDrawer(),
               child: Padding(
                 padding: const EdgeInsets.only(right: 16),
                 child: _AvatarWidget(avatarUrl: avatar),
@@ -76,19 +78,6 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Container(height: 1, color: AppColors.divider),
-      ),
-    );
-  }
-
-  void _showProfileMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.cardBg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => _ProfileSheet(
-        onSignOut: () => context.read<AuthCubit>().signOut(),
       ),
     );
   }
@@ -183,70 +172,6 @@ class _CreateRoomFab extends StatelessWidget {
         ),
         child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
       ),
-    );
-  }
-}
-
-class _ProfileSheet extends StatelessWidget {
-  final VoidCallback onSignOut;
-  const _ProfileSheet({required this.onSignOut});
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<AuthCubit, AuthState>(
-      builder: (context, state) {
-        final user = state is AuthAuthenticated ? state.user : null;
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                  width: 40, height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.fieldBorder,
-                    borderRadius: BorderRadius.circular(2),
-                  )),
-              const SizedBox(height: 24),
-              if (user != null) ...[
-                Text(user.name, style: AppTextStyles.heading3),
-                const SizedBox(height: 4),
-                Text(
-                  user.username != null ? '@${user.username}' : user.email,
-                  style: AppTextStyles.bodySmall,
-                ),
-                const SizedBox(height: 24),
-                const Divider(color: AppColors.divider),
-                const SizedBox(height: 16),
-              ],
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.person_outline_rounded,
-                    color: AppColors.cyanDark),
-                title: Text('Edit profile', style: AppTextStyles.bodyMedium),
-                trailing: const Icon(Icons.chevron_right_rounded,
-                    color: AppColors.greyLight),
-                onTap: () {
-                  Navigator.pop(context);
-                  context.push('/profile');
-                },
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.logout_rounded,
-                    color: AppColors.error),
-                title: Text('Sign Out',
-                    style: AppTextStyles.bodyMedium
-                        .copyWith(color: AppColors.error)),
-                onTap: () {
-                  Navigator.pop(context);
-                  onSignOut();
-                },
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }
