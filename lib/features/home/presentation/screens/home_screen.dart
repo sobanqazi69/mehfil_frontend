@@ -211,11 +211,26 @@ class _ProfileSheet extends StatelessWidget {
               if (user != null) ...[
                 Text(user.name, style: AppTextStyles.heading3),
                 const SizedBox(height: 4),
-                Text(user.email, style: AppTextStyles.bodySmall),
+                Text(
+                  user.username != null ? '@${user.username}' : user.email,
+                  style: AppTextStyles.bodySmall,
+                ),
                 const SizedBox(height: 24),
                 const Divider(color: AppColors.divider),
                 const SizedBox(height: 16),
               ],
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.person_outline_rounded,
+                    color: AppColors.cyanDark),
+                title: Text('Edit profile', style: AppTextStyles.bodyMedium),
+                trailing: const Icon(Icons.chevron_right_rounded,
+                    color: AppColors.greyLight),
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push('/profile');
+                },
+              ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.logout_rounded,
