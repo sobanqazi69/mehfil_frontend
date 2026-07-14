@@ -91,8 +91,8 @@ class MapUtils {
     try {
       if (value is! List) return const [];
       return value
-          .where((e) => e is Map)
-          .map((e) => Map<String, dynamic>.from(e as Map))
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
           .toList();
     } catch (_) {
       return const [];

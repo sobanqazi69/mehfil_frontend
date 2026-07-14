@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/utils/debug_logger.dart';
+import '../../../../core/utils/map_utils.dart';
 import '../../data/models/message_model.dart';
 import '../../data/models/room_member_model.dart';
 import '../../data/repositories/room_repository.dart';
@@ -19,17 +20,18 @@ class RoomCubit extends Cubit<RoomState> {
 
       final results = await Future.wait([
         _repo.getRoom(roomId),
-        _repo.getRoomMessages(roomId),
         _repo.getVoiceToken(roomId),
       ]);
 
       if (isClosed) return;
+      final voice = MapUtils.asMap(results[1]);
       emit(RoomLoaded(
         room: results[0] as dynamic,
-        messages: results[1] as List<MessageModel>,
-        voiceToken: (results[2] as Map<String, dynamic>)['token'] as String?,
-        voiceRoomName:
-            (results[2] as Map<String, dynamic>)['roomName'] as String?,
+        // Chat history is deliberately not loaded: a user only sees messages
+        // sent after they joined.
+        messages: const [],
+        voiceToken: MapUtils.handleNullableStringKey(voice, 'token'),
+        voiceRoomName: MapUtils.handleNullableStringKey(voice, 'roomName'),
       ));
 
       _repo.joinRoom(roomId, userId);
@@ -96,12 +98,18 @@ class RoomCubit extends Cubit<RoomState> {
     if (isClosed) return;
     if (state is RoomLoaded) {
       final s = state as RoomLoaded;
+      final payload = MapUtils.asMap(data);
       emit(s.copyWith(
         room: s.room.copyWith(
-          youtubeId: data['youtubeId'] as String?,
-          nextYoutubeId: data['nextYoutubeId'] as String?,
-          timestampSec: (data['timestampSec'] ?? data['timestamp'] as num?)?.toDouble() ?? 0,
-          isPlaying: data['isPlaying'] as bool? ?? false,
+          youtubeId: MapUtils.handleNullableStringKey(payload, 'youtubeId'),
+          nextYoutubeId:
+              MapUtils.handleNullableStringKey(payload, 'nextYoutubeId'),
+          timestampSec:
+              MapUtils.handleNullableDoubleKey(payload, 'timestampSec') ??
+                  MapUtils.handleNullableDoubleKey(payload, 'timestamp') ??
+                  0,
+          isPlaying:
+              MapUtils.handleNullableBoolKey(payload, 'isPlaying') ?? false,
         ),
       ));
     }

@@ -20,7 +20,7 @@ class MessageModel extends Equatable {
 
   factory MessageModel.fromJson(Map<String, dynamic> json) {
     try {
-      final userMap = json['user'] as Map<String, dynamic>?;
+      final userMap = MapUtils.handleNullableMapKey(json, 'user');
       return MessageModel(
         id: MapUtils.handleNullableIntKey(json, 'id') ?? 0,
         userId: MapUtils.handleNullableIntKey(json, 'userId') ??

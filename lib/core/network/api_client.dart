@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import '../constants/api_endpoints.dart';
 import '../services/secure_storage_service.dart';
 import '../utils/debug_logger.dart';
+import '../utils/map_utils.dart';
 
 class ApiClient {
   late final Dio _dio;
@@ -62,7 +63,8 @@ class _AuthInterceptor extends Interceptor {
           ApiEndpoints.refreshToken,
           data: {'refreshToken': refreshToken},
         );
-        final newToken = res.data['accessToken'] as String?;
+        final newToken = MapUtils.handleNullableStringKey(
+            MapUtils.asMap(res.data), 'accessToken');
         if (newToken != null) {
           await _storage.saveAccessToken(newToken);
           err.requestOptions.headers['Authorization'] = 'Bearer $newToken';

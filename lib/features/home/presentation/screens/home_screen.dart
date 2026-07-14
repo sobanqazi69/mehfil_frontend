@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
 import '../../../../core/utils/debug_logger.dart';
+import '../../../../core/utils/map_utils.dart';
 import '../../../../core/widgets/app_loader.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/cubits/auth_cubit.dart';
@@ -139,9 +140,11 @@ class _CreateRoomFab extends StatelessWidget {
       );
       if (result == null || !context.mounted) return;
 
-      final youtubeId = result['id'] as String?;
+      final data = MapUtils.asMap(result);
+      final youtubeId = MapUtils.handleNullableStringKey(data, 'id');
       if (youtubeId == null || youtubeId.isEmpty) return;
-      final name = (result['title'] as String?) ?? 'Watch Party';
+      final name =
+          MapUtils.handleNullableStringKey(data, 'title') ?? 'Watch Party';
 
       AppLoader.show(context);
       final room = await context

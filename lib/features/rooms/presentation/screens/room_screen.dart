@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
+import '../../../../core/utils/map_utils.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/cubits/auth_cubit.dart';
 import '../../../auth/presentation/cubits/auth_state.dart';
@@ -13,6 +14,7 @@ import '../widgets/chat_bubble.dart';
 import '../widgets/listeners_drawer.dart';
 import '../widgets/mic_fab.dart';
 import '../widgets/room_video_player.dart';
+import '../widgets/unmuted_avatars.dart';
 import 'youtube_picker_screen.dart';
 
 class RoomScreen extends StatefulWidget {
@@ -53,10 +55,16 @@ class _RoomScreenState extends State<RoomScreen> {
     }
   }
 
+  bool _leaveDialogOpen = false;
+
   void _confirmLeave() {
+    if (_hasLeft || _leaveDialogOpen) return;
+    _leaveDialogOpen = true;
+
     // Defer to next frame — onPopInvokedWithResult fires while the navigator
     // is locked mid-pop; pushing a dialog at that moment throws an assertion.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       final res = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
@@ -68,6 +76,7 @@ class _RoomScreenState extends State<RoomScreen> {
           ],
         ),
       );
+      _leaveDialogOpen = false;
       if (res == true) _leave();
     });
   }
@@ -81,8 +90,10 @@ class _RoomScreenState extends State<RoomScreen> {
     );
 
     if (result != null && result is Map) {
-      final id = result['id'] as String;
-      final action = result['action'] as String;
+      final data = MapUtils.asMap(result);
+      final id = MapUtils.handleNullableStringKey(data, 'id');
+      final action = MapUtils.handleNullableStringKey(data, 'action');
+      if (id == null || id.isEmpty) return;
       if (action == 'play') {
         context.read<RoomCubit>().loadVideo(id);
       } else {
@@ -139,7 +150,13 @@ class _RoomScreenState extends State<RoomScreen> {
 
         return PopScope(
           canPop: false,
-          onPopInvokedWithResult: (_, __) => _confirmLeave(),
+          onPopInvokedWithResult: (didPop, __) {
+            // Fires again once _leave() pops the route. Without the didPop
+            // guard that second call re-opens the dialog on a room we already
+            // left.
+            if (didPop || _hasLeft) return;
+            _confirmLeave();
+          },
           child: GestureDetector(
             onTap: () => FocusScope.of(context).unfocus(),
             child: Scaffold(
@@ -282,7 +299,7 @@ class _RoomHeader extends StatelessWidget {
               ),
             ),
           ),
-          const Spacer(),
+          const Expanded(child: UnmutedAvatars()),
           if (isHost && onToggleQueue != null)
             _HeaderAction(
               icon: Icons.playlist_add_rounded,
