@@ -49,11 +49,16 @@ class AuthRepository {
     }
   }
 
-  Future<UserModel> updateProfile({String? name, String? username}) async {
+  Future<UserModel> updateProfile({
+    String? name,
+    String? username,
+    String? bio,
+  }) async {
     try {
       final res = await _api.patch(ApiEndpoints.me, data: {
         if (name != null) 'name': name,
         if (username != null) 'username': username,
+        if (bio != null) 'bio': bio,
       });
       return UserModel.fromJson(MapUtils.asMap(res.data));
     } on DioException catch (e) {

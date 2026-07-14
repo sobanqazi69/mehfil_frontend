@@ -6,6 +6,7 @@ class UserModel extends Equatable {
   final String googleId;
   final String name;
   final String? username;
+  final String? bio;
   final String email;
   final String? avatar;
   final DateTime? createdAt;
@@ -15,6 +16,7 @@ class UserModel extends Equatable {
     required this.googleId,
     required this.name,
     this.username,
+    this.bio,
     required this.email,
     this.avatar,
     this.createdAt,
@@ -27,6 +29,7 @@ class UserModel extends Equatable {
         googleId: MapUtils.handleNullableStringKey(json, 'googleId') ?? '',
         name: MapUtils.handleNullableStringKey(json, 'name') ?? 'User',
         username: MapUtils.handleNullableStringKey(json, 'username'),
+        bio: MapUtils.handleNullableStringKey(json, 'bio'),
         email: MapUtils.handleNullableStringKey(json, 'email') ?? '',
         avatar: MapUtils.handleNullableStringKey(json, 'avatar'),
         createdAt: json['createdAt'] != null
@@ -44,6 +47,7 @@ class UserModel extends Equatable {
     String? googleId,
     String? name,
     String? username,
+    String? bio,
     String? email,
     String? avatar,
     DateTime? createdAt,
@@ -53,6 +57,7 @@ class UserModel extends Equatable {
       googleId: googleId ?? this.googleId,
       name: name ?? this.name,
       username: username ?? this.username,
+      bio: bio ?? this.bio,
       email: email ?? this.email,
       avatar: avatar ?? this.avatar,
       createdAt: createdAt ?? this.createdAt,
@@ -60,5 +65,6 @@ class UserModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, googleId, name, username, email, avatar];
+  List<Object?> get props =>
+      [id, googleId, name, username, bio, email, avatar];
 }
