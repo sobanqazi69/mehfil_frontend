@@ -69,7 +69,7 @@ class ChatBubble extends StatelessWidget {
                   child: Text(
                     message.text,
                     style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.white,
+                      color: isMe ? AppColors.white : AppColors.slate,
                       height: 1.4,
                     ),
                   ),
@@ -131,7 +131,7 @@ class _AvatarBubble extends StatelessWidget {
         child: Text(
           name.isNotEmpty ? name[0].toUpperCase() : '?',
           style: AppTextStyles.labelSmall.copyWith(
-            color: AppColors.white,
+            color: isMe ? AppColors.white : AppColors.grey,
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),

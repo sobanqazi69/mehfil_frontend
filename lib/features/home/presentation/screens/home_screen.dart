@@ -7,43 +7,24 @@ import '../../../../config/theme/app_text_styles.dart';
 import '../../../auth/presentation/cubits/auth_cubit.dart';
 import '../../../auth/presentation/cubits/auth_state.dart';
 import '../../../rooms/presentation/screens/browse_rooms_screen.dart';
-import '../../../rooms/presentation/screens/my_rooms_screen.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   final void Function(int roomId) onRoomTap;
   const HomeScreen({super.key, required this.onRoomTap});
-
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  int _tab = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.lightBg,
-      appBar: _AppBar(tab: _tab),
-      body: IndexedStack(
-        index: _tab,
-        children: [
-          BrowseRoomsScreen(onRoomTap: widget.onRoomTap),
-          MyRoomsScreen(onRoomTap: widget.onRoomTap),
-        ],
-      ),
-      bottomNavigationBar: _BottomNav(
-        current: _tab,
-        onTap: (i) => setState(() => _tab = i),
-      ),
+      appBar: const _AppBar(),
+      body: BrowseRoomsScreen(onRoomTap: onRoomTap),
       floatingActionButton: _CreateRoomFab(),
     );
   }
 }
 
 class _AppBar extends StatelessWidget implements PreferredSizeWidget {
-  final int tab;
-  const _AppBar({required this.tab});
+  const _AppBar();
 
   @override
   Widget build(BuildContext context) {
@@ -137,46 +118,6 @@ class _AvatarWidget extends StatelessWidget {
               )
             : const Icon(Icons.person_rounded,
                 color: AppColors.white, size: 20),
-      ),
-    );
-  }
-}
-
-class _BottomNav extends StatelessWidget {
-  final int current;
-  final ValueChanged<int> onTap;
-  const _BottomNav({required this.current, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.fieldBorder)),
-      ),
-      child: BottomNavigationBar(
-        currentIndex: current,
-        onTap: onTap,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        selectedItemColor: AppColors.cyan,
-        unselectedItemColor: AppColors.grey,
-        selectedLabelStyle: AppTextStyles.labelSmall
-            .copyWith(color: AppColors.cyan),
-        unselectedLabelStyle:
-            AppTextStyles.labelSmall.copyWith(color: AppColors.grey),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.explore_outlined),
-            activeIcon: Icon(Icons.explore_rounded),
-            label: 'Browse',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.door_back_door_outlined),
-            activeIcon: Icon(Icons.door_back_door_rounded),
-            label: 'My Rooms',
-          ),
-        ],
       ),
     );
   }

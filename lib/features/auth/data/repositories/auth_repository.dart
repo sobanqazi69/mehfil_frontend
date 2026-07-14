@@ -32,6 +32,7 @@ class AuthRepository {
 
   Future<UserModel?> getMe() async {
     try {
+      if (await _storage.getAccessToken() == null) return null;
       final res = await _api.get(ApiEndpoints.me);
       return UserModel.fromJson(res.data as Map<String, dynamic>);
     } on DioException catch (e) {

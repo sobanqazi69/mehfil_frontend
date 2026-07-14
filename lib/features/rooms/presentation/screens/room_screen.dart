@@ -143,10 +143,6 @@ class _RoomScreenState extends State<RoomScreen> {
             onTap: () => FocusScope.of(context).unfocus(),
             child: Scaffold(
               backgroundColor: AppColors.lightBg,
-              drawer: _RoomDrawer(
-                room: state.room,
-                isHost: state.room.hostId == currentUserId,
-              ),
               body: Column(
                 children: [
                   // 1. Optimized Header
@@ -159,7 +155,6 @@ class _RoomScreenState extends State<RoomScreen> {
                         room: data.room,
                         onLeave: _confirmLeave,
                         isHost: data.isHost,
-                        onOpenDrawer: () => Scaffold.of(context).openDrawer(),
                         onToggleQueue: data.isHost ? _openYoutubePicker : null,
                       );
                     },
@@ -247,14 +242,12 @@ class _RoomHeader extends StatelessWidget {
   final RoomModel room;
   final VoidCallback onLeave;
   final bool isHost;
-  final VoidCallback onOpenDrawer;
   final VoidCallback? onToggleQueue;
 
   const _RoomHeader({
     required this.room,
     required this.onLeave,
     required this.isHost,
-    required this.onOpenDrawer,
     this.onToggleQueue,
   });
 
@@ -345,11 +338,6 @@ class _RoomHeader extends StatelessWidget {
               color: AppColors.cyan,
               onTap: onToggleQueue!,
             ),
-          _HeaderAction(
-            icon: Icons.menu_rounded,
-            color: AppColors.grey,
-            onTap: onOpenDrawer,
-          ),
           const SizedBox(width: 4),
         ],
       ),
@@ -910,174 +898,4 @@ class _ParticipantsData {
   @override
   int get hashCode =>
       members.length.hashCode ^ hostId.hashCode ^ mutedMap.length.hashCode;
-}
-
-// ── Room Drawer ───────────────────────────────────────────────────────────
-
-class _RoomDrawer extends StatelessWidget {
-  final RoomModel room;
-  final bool isHost;
-
-  const _RoomDrawer({required this.room, required this.isHost});
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      backgroundColor: AppColors.lightBg,
-      child: Column(
-        children: [
-          _DrawerHeader(room: room),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              children: [
-                const _DrawerSection(title: 'Room Settings'),
-                _DrawerTile(
-                  icon: Icons.public_rounded,
-                  title: 'Privacy',
-                  trailing: Switch.adaptive(
-                    value: room.isPublic,
-                    onChanged: isHost
-                        ? (val) {
-                            context.read<RoomCubit>().updateSettings(isPublic: val);
-                            AppSnackbar.info(context, 'Privacy updated');
-                          }
-                        : null,
-                    activeTrackColor: AppColors.cyan,
-                  ),
-                  subtitle: room.isPublic ? 'Public Room' : 'Private Room',
-                ),
-                _DrawerTile(
-                  icon: Icons.edit_rounded,
-                  title: 'Rename Room',
-                  onTap: isHost ? () {} : null,
-                ),
-                const Divider(color: AppColors.divider, height: 32),
-                const _DrawerSection(title: 'Audio'),
-                _DrawerTile(
-                  icon: Icons.volume_off_rounded,
-                  title: 'Mute All',
-                  onTap: isHost
-                      ? () => context.read<RoomCubit>().muteAll()
-                      : null,
-                ),
-                const Divider(color: AppColors.divider, height: 32),
-                _DrawerTile(
-                  icon: Icons.info_outline_rounded,
-                  title: 'About Room',
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Text(
-              'Mehfil v1.0.0',
-              style: AppTextStyles.labelSmall.copyWith(color: AppColors.grey),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DrawerHeader extends StatelessWidget {
-  final RoomModel room;
-  const _DrawerHeader({required this.room});
-
-  @override
-  Widget build(BuildContext context) {
-    final top = MediaQuery.of(context).padding.top;
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(24, top + 32, 24, 32),
-      decoration: const BoxDecoration(
-        gradient: AppColors.primaryGradient,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.meeting_room_rounded,
-                color: Colors.white, size: 32),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            room.name,
-            style: AppTextStyles.heading2.copyWith(color: Colors.white),
-          ),
-          Text(
-            'Room ID: #${room.id}',
-            style: AppTextStyles.bodySmall
-                .copyWith(color: Colors.white.withValues(alpha: 0.8)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DrawerSection extends StatelessWidget {
-  final String title;
-  const _DrawerSection({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
-      child: Text(
-        title.toUpperCase(),
-        style: AppTextStyles.labelSmall.copyWith(
-          color: AppColors.cyan,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.2,
-        ),
-      ),
-    );
-  }
-}
-
-class _DrawerTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-
-  const _DrawerTile({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.trailing,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: AppColors.grey.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, color: AppColors.grey, size: 20),
-      ),
-      title: Text(title, style: AppTextStyles.bodyMedium),
-      subtitle: subtitle != null
-          ? Text(subtitle!,
-              style: AppTextStyles.labelSmall.copyWith(color: AppColors.grey))
-          : null,
-      trailing: trailing,
-      onTap: onTap,
-    );
-  }
 }
