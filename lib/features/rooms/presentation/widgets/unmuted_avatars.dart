@@ -21,7 +21,9 @@ class UnmutedAvatars extends StatelessWidget {
         if (state is! RoomLoaded) return const SizedBox.shrink();
 
         final unmuted = state.members
-            .where((m) => !(state.mutedMap[m.userId] ?? m.isMuted))
+            .where((m) =>
+                !(state.mutedMap[m.userId] ?? m.isMuted) &&
+                !(state.hostMutedMap[m.userId] ?? m.mutedByHost))
             .toList();
 
         if (unmuted.isEmpty) return const SizedBox.shrink();

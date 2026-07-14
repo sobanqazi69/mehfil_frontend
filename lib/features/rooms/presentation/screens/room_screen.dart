@@ -7,8 +7,10 @@ import '../../../../core/utils/map_utils.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/cubits/auth_cubit.dart';
 import '../../../auth/presentation/cubits/auth_state.dart';
+import '../../data/models/message_model.dart';
 import '../../data/models/room_model.dart';
 import '../cubits/room_cubit.dart';
+import '../cubits/room_list_cubit.dart';
 import '../cubits/room_state.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/listeners_drawer.dart';
@@ -33,9 +35,14 @@ class _RoomScreenState extends State<RoomScreen> {
   @override
   void initState() {
     super.initState();
+    final cubit = context.read<RoomCubit>();
+    cubit.micBlocked = (message) {
+      if (mounted) AppSnackbar.error(context, message);
+    };
+
     final authState = context.read<AuthCubit>().state;
     if (authState is AuthAuthenticated) {
-      context.read<RoomCubit>().enterRoom(widget.roomId, authState.user.id);
+      cubit.enterRoom(widget.roomId, authState.user.id);
     }
   }
 
@@ -102,6 +109,17 @@ class _RoomScreenState extends State<RoomScreen> {
     }
   }
 
+  /// Host removed us: leave silently (no confirm dialog), go home, refresh the
+  /// list so the room we can no longer see disappears.
+  void _onKicked() {
+    if (_hasLeft) return;
+    _hasLeft = true;
+
+    context.read<RoomListCubit>().refresh(silent: true);
+    context.go('/');
+    AppSnackbar.error(context, 'You have been kicked from the room');
+  }
+
   void _sendMessage() {
     final text = _chatCtrl.text.trim();
     if (text.isEmpty) return;
@@ -133,6 +151,7 @@ class _RoomScreenState extends State<RoomScreen> {
     return BlocConsumer<RoomCubit, RoomState>(
       listener: (context, state) {
         if (state is RoomError) AppSnackbar.error(context, state.message);
+        if (state is RoomKicked) _onKicked();
         if (state is RoomLoaded && state.messages.isNotEmpty) _scrollToBottom();
       },
       builder: (context, state) {
@@ -203,9 +222,12 @@ class _RoomScreenState extends State<RoomScreen> {
 
                 // 3. Optimized Chat List
                 Expanded(
-                  child: BlocSelector<RoomCubit, RoomState, List>(
-                    selector: (s) => (s is RoomLoaded) ? s.messages : [],
-                    builder: (context, messages) {
+                  child: BlocSelector<RoomCubit, RoomState, _ChatData>(
+                    selector: (s) => (s is RoomLoaded)
+                        ? _ChatData(s.messages, s.room.hostId)
+                        : const _ChatData([], 0),
+                    builder: (context, data) {
+                      final messages = data.messages;
                       if (messages.isEmpty) return const _EmptyChat();
                       return ListView.builder(
                         controller: _scrollCtrl,
@@ -214,6 +236,10 @@ class _RoomScreenState extends State<RoomScreen> {
                         itemBuilder: (_, i) => ChatBubble(
                           message: messages[i],
                           isMe: messages[i].userId == currentUserId,
+                          isHost: messages[i].userId == data.hostId,
+                          // Hide avatar/name on a run from the same sender.
+                          showSender: i == 0 ||
+                              messages[i - 1].userId != messages[i].userId,
                         ),
                       );
                     },
@@ -221,12 +247,15 @@ class _RoomScreenState extends State<RoomScreen> {
                 ),
 
                 // 5. Optimized Chat Bar
-                BlocSelector<RoomCubit, RoomState, bool>(
-                  selector: (s) => (s is RoomLoaded) ? s.isMicMuted : true,
-                  builder: (context, isMicMuted) {
+                BlocSelector<RoomCubit, RoomState, _MicData>(
+                  selector: (s) => (s is RoomLoaded)
+                      ? _MicData(s.isMicMuted, s.isHostMuted)
+                      : const _MicData(true, false),
+                  builder: (context, mic) {
                     return _ChatBar(
                       ctrl: _chatCtrl,
-                      isMicMuted: isMicMuted,
+                      isMicMuted: mic.isMicMuted,
+                      isHostMuted: mic.isHostMuted,
                       onSend: _sendMessage,
                       onMicToggle: () =>
                           context.read<RoomCubit>().toggleMic(currentUserId),
@@ -353,12 +382,14 @@ class _HeaderAction extends StatelessWidget {
 class _ChatBar extends StatelessWidget {
   final TextEditingController ctrl;
   final bool isMicMuted;
+  final bool isHostMuted;
   final VoidCallback onSend;
   final VoidCallback onMicToggle;
 
   const _ChatBar({
     required this.ctrl,
     required this.isMicMuted,
+    required this.isHostMuted,
     required this.onSend,
     required this.onMicToggle,
   });
@@ -384,7 +415,11 @@ class _ChatBar extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          MicFab(isMuted: isMicMuted, onToggle: onMicToggle),
+          MicFab(
+            isMuted: isMicMuted,
+            isHostMuted: isHostMuted,
+            onToggle: onMicToggle,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Container(
@@ -673,6 +708,39 @@ class _ErrorScaffold extends StatelessWidget {
 }
 
 // ── Data Helpers for Optimized Rebuilds ──────────────────────────────────────
+
+class _MicData {
+  final bool isMicMuted;
+  final bool isHostMuted;
+
+  const _MicData(this.isMicMuted, this.isHostMuted);
+
+  @override
+  bool operator ==(Object other) =>
+      other is _MicData &&
+      other.isMicMuted == isMicMuted &&
+      other.isHostMuted == isHostMuted;
+
+  @override
+  int get hashCode => isMicMuted.hashCode ^ isHostMuted.hashCode;
+}
+
+class _ChatData {
+  final List<MessageModel> messages;
+  final int hostId;
+
+  const _ChatData(this.messages, this.hostId);
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ChatData &&
+      other.hostId == hostId &&
+      other.messages.length == messages.length &&
+      (messages.isEmpty || other.messages.last.id == messages.last.id);
+
+  @override
+  int get hashCode => messages.length.hashCode ^ hostId.hashCode;
+}
 
 class _HeaderData {
   final RoomModel room;

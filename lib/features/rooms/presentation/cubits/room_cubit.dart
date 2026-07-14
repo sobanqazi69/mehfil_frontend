@@ -10,11 +10,14 @@ class RoomCubit extends Cubit<RoomState> {
   final RoomRepository _repo;
   int? _roomId;
 
+  int? _userId;
+
   RoomCubit(this._repo) : super(const RoomInitial());
 
   Future<void> enterRoom(int roomId, int userId) async {
     try {
       _roomId = roomId;
+      _userId = userId;
       if (isClosed) return;
       emit(const RoomLoading());
 
@@ -49,15 +52,27 @@ class RoomCubit extends Cubit<RoomState> {
     _repo.onMicMutedAll(_onMicMutedAll);
     _repo.onVideoState(_onVideoState);
     _repo.onSettingsUpdated(_onSettingsUpdated);
+    _repo.onKicked(_onKicked);
+    _repo.onMicBlocked(_onMicBlocked);
   }
 
   void _onMembers(List<RoomMemberModel> members, int? hostId) {
     if (isClosed) return;
     if (state is RoomLoaded) {
       final s = state as RoomLoaded;
+      // The roster is the source of truth for both mute kinds.
+      final muted = {for (final m in members) m.userId: m.isMuted};
+      final hostMuted = {for (final m in members) m.userId: m.mutedByHost};
+      final me = _userId;
+
       emit(s.copyWith(
         members: members,
         room: hostId != null ? s.room.copyWith(hostId: hostId) : s.room,
+        mutedMap: muted,
+        hostMutedMap: hostMuted,
+        isMicMuted: me != null ? (muted[me] ?? s.isMicMuted) : s.isMicMuted,
+        isHostMuted:
+            me != null ? (hostMuted[me] ?? s.isHostMuted) : s.isHostMuted,
       ));
     }
   }
@@ -70,19 +85,48 @@ class RoomCubit extends Cubit<RoomState> {
     }
   }
 
-  void _onMicState(int userId, bool isMuted) {
+  void _onMicState(int userId, bool isMuted, bool mutedByHost) {
     if (isClosed) return;
     if (state is RoomLoaded) {
       final s = state as RoomLoaded;
-      final updated = Map<int, bool>.from(s.mutedMap)..[userId] = isMuted;
-      emit(s.copyWith(mutedMap: updated));
+      final muted = Map<int, bool>.from(s.mutedMap)..[userId] = isMuted;
+      final hostMuted = Map<int, bool>.from(s.hostMutedMap)
+        ..[userId] = mutedByHost;
+
+      emit(s.copyWith(
+        mutedMap: muted,
+        hostMutedMap: hostMuted,
+        isMicMuted: userId == _userId ? isMuted : s.isMicMuted,
+        isHostMuted: userId == _userId ? mutedByHost : s.isHostMuted,
+      ));
     }
   }
+
+  /// We tried to unmute while host-muted; the server refused.
+  void _onMicBlocked(String message) {
+    if (isClosed) return;
+    if (state is RoomLoaded) {
+      final s = state as RoomLoaded;
+      // Snap the button back — our optimistic unmute never took effect.
+      emit(s.copyWith(isMicMuted: true, isHostMuted: true));
+    }
+    micBlocked?.call(message);
+  }
+
+  /// Set by the room screen to surface a snackbar.
+  void Function(String message)? micBlocked;
 
   void _onMicMutedAll() {
     if (isClosed) return;
     if (state is RoomLoaded) {
-      emit((state as RoomLoaded).copyWith(isMicMuted: true, mutedMap: {}));
+      final s = state as RoomLoaded;
+      final amHost = _userId == s.room.hostId;
+      // The host is exempt from its own mute-all. A fresh room:members
+      // broadcast follows with the authoritative per-user flags.
+      emit(s.copyWith(
+        isMicMuted: amHost ? s.isMicMuted : true,
+        isHostMuted: amHost ? s.isHostMuted : true,
+      ));
     }
   }
 
@@ -123,6 +167,13 @@ class RoomCubit extends Cubit<RoomState> {
   void toggleMic(int userId) {
     if (_roomId == null || state is! RoomLoaded) return;
     final s = state as RoomLoaded;
+
+    // Host-muted: don't even ask the server, and tell the user why.
+    if (s.isHostMuted) {
+      micBlocked?.call('The host has muted you');
+      return;
+    }
+
     final newMuted = !s.isMicMuted;
     _repo.toggleMic(_roomId!, userId, newMuted);
     if (!isClosed) emit(s.copyWith(isMicMuted: newMuted));
@@ -131,6 +182,31 @@ class RoomCubit extends Cubit<RoomState> {
   void muteAll() {
     if (_roomId == null) return;
     _repo.muteAll(_roomId!);
+  }
+
+  /// Host-only. The server re-checks that we are the host before acting; the
+  /// UI only offers these on other listeners.
+  void hostToggleMic(int targetUserId, bool isMuted) {
+    if (_roomId == null) return;
+    _repo.forceToggleMic(_roomId!, targetUserId, isMuted);
+  }
+
+  /// Promote another listener to host. The authoritative hostId comes back on
+  /// the room:members broadcast, so no optimistic update here.
+  void hostTransferTo(int targetUserId) {
+    if (_roomId == null) return;
+    _repo.transferHost(_roomId!, targetUserId);
+  }
+
+  void hostKickUser(int targetUserId) {
+    if (_roomId == null) return;
+    _repo.kickUser(_roomId!, targetUserId);
+  }
+
+  void _onKicked() {
+    if (isClosed) return;
+    _repo.offRoomListeners();
+    emit(const RoomKicked());
   }
 
   void loadVideo(String youtubeId) {

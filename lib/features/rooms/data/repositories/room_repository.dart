@@ -118,6 +118,31 @@ class RoomRepository {
     _socket.emit('mic:mute_all', {'roomId': roomId});
   }
 
+  /// Host-only: mute or unmute another listener.
+  void forceToggleMic(int roomId, int targetUserId, bool isMuted) {
+    _socket.emit('mic:force_toggle', {
+      'roomId': roomId,
+      'targetUserId': targetUserId,
+      'isMuted': isMuted,
+    });
+  }
+
+  /// Host-only: hand the room to another listener; we become a normal user.
+  void transferHost(int roomId, int targetUserId) {
+    _socket.emit('room:transfer_host', {
+      'roomId': roomId,
+      'targetUserId': targetUserId,
+    });
+  }
+
+  /// Host-only: remove a listener from the room.
+  void kickUser(int roomId, int targetUserId) {
+    _socket.emit('room:kick', {
+      'roomId': roomId,
+      'targetUserId': targetUserId,
+    });
+  }
+
   void loadVideo(int roomId, String youtubeId) {
     _socket.emit('video:load', {'roomId': roomId, 'youtubeId': youtubeId});
   }
@@ -171,22 +196,43 @@ class RoomRepository {
     });
   }
 
-  void onMicState(Function(int userId, bool isMuted) callback) {
+  void onMicState(
+      Function(int userId, bool isMuted, bool mutedByHost) callback) {
     _socket.on('mic:state', (data) {
       try {
         final payload = MapUtils.asMap(data);
         final userId = MapUtils.handleNullableIntKey(payload, 'userId') ?? 0;
         final isMuted =
             MapUtils.handleNullableBoolKey(payload, 'isMuted') ?? true;
-        callback(userId, isMuted);
+        final mutedByHost =
+            MapUtils.handleNullableBoolKey(payload, 'mutedByHost') ?? false;
+        callback(userId, isMuted, mutedByHost);
       } catch (e) {
         DebugLogger.error('onMicState parse error', error: e);
       }
     });
   }
 
+  /// We tried to unmute while the host has us muted.
+  void onMicBlocked(Function(String message) callback) {
+    _socket.on('mic:blocked', (data) {
+      try {
+        callback(MapUtils.handleNullableStringKey(
+                MapUtils.asMap(data), 'message') ??
+            'The host has muted you');
+      } catch (e) {
+        DebugLogger.error('onMicBlocked parse error', error: e);
+      }
+    });
+  }
+
   void onMicMutedAll(VoidCallback callback) {
     _socket.on('mic:muted_all', (_) => callback());
+  }
+
+  /// Fires on this device when the host kicks us out.
+  void onKicked(VoidCallback callback) {
+    _socket.on('room:kicked', (_) => callback());
   }
 
   void onSettingsUpdated(Function(bool isPublic) callback) {
@@ -209,6 +255,8 @@ class RoomRepository {
     _socket.off('mic:state');
     _socket.off('mic:muted_all');
     _socket.off('room:settings_updated');
+    _socket.off('room:kicked');
+    _socket.off('mic:blocked');
   }
 
   String _parseError(DioException e) =>

@@ -23,8 +23,10 @@ class RoomLoaded extends RoomState {
   final List<MessageModel> messages;
   final String? voiceToken;
   final String? voiceRoomName;
-  final Map<int, bool> mutedMap; // userId → isMuted
-  final bool isMicMuted;
+  final Map<int, bool> mutedMap; // userId → self-muted
+  final Map<int, bool> hostMutedMap; // userId → muted by host
+  final bool isMicMuted; // our own self-mute
+  final bool isHostMuted; // the host muted us
 
   const RoomLoaded({
     required this.room,
@@ -33,7 +35,9 @@ class RoomLoaded extends RoomState {
     this.voiceToken,
     this.voiceRoomName,
     this.mutedMap = const {},
+    this.hostMutedMap = const {},
     this.isMicMuted = true,
+    this.isHostMuted = false,
   });
 
   RoomLoaded copyWith({
@@ -43,7 +47,9 @@ class RoomLoaded extends RoomState {
     String? voiceToken,
     String? voiceRoomName,
     Map<int, bool>? mutedMap,
+    Map<int, bool>? hostMutedMap,
     bool? isMicMuted,
+    bool? isHostMuted,
   }) {
     return RoomLoaded(
       room: room ?? this.room,
@@ -52,13 +58,16 @@ class RoomLoaded extends RoomState {
       voiceToken: voiceToken ?? this.voiceToken,
       voiceRoomName: voiceRoomName ?? this.voiceRoomName,
       mutedMap: mutedMap ?? this.mutedMap,
+      hostMutedMap: hostMutedMap ?? this.hostMutedMap,
       isMicMuted: isMicMuted ?? this.isMicMuted,
+      isHostMuted: isHostMuted ?? this.isHostMuted,
     );
   }
 
   @override
   List<Object?> get props =>
-      [room, members, messages, voiceToken, mutedMap, isMicMuted];
+      [room, members, messages, voiceToken, mutedMap, hostMutedMap,
+        isMicMuted, isHostMuted];
 }
 
 class RoomError extends RoomState {
@@ -66,4 +75,9 @@ class RoomError extends RoomState {
   const RoomError(this.message);
   @override
   List<Object?> get props => [message];
+}
+
+/// The host removed us from the room.
+class RoomKicked extends RoomState {
+  const RoomKicked();
 }
