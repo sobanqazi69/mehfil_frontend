@@ -10,6 +10,8 @@ class ApiEndpoints {
 
   // Users
   static const String me = '$_base/users/me';
+  static const String avatarUpload = '$_base/users/me/avatar';
+  static const String usernameAvailable = '$_base/users/username-available';
 
   // Rooms
   static const String rooms    = '$_base/rooms';

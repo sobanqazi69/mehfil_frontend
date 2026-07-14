@@ -49,6 +49,52 @@ class AuthRepository {
     }
   }
 
+  Future<UserModel> updateProfile({String? name, String? username}) async {
+    try {
+      final res = await _api.patch(ApiEndpoints.me, data: {
+        if (name != null) 'name': name,
+        if (username != null) 'username': username,
+      });
+      return UserModel.fromJson(MapUtils.asMap(res.data));
+    } on DioException catch (e) {
+      DebugLogger.error('updateProfile failed', error: e);
+      throw _parseError(e);
+    }
+  }
+
+  Future<UserModel> uploadAvatar(String filePath) async {
+    try {
+      final res = await _api.postMultipart(
+        ApiEndpoints.avatarUpload,
+        filePath: filePath,
+        field: 'avatar',
+      );
+      return UserModel.fromJson(MapUtils.asMap(res.data));
+    } on DioException catch (e) {
+      DebugLogger.error('uploadAvatar failed', error: e);
+      throw _parseError(e);
+    }
+  }
+
+  /// Returns null when available, otherwise the reason it is not.
+  Future<String?> usernameTakenReason(String username) async {
+    try {
+      final res = await _api.get(
+        ApiEndpoints.usernameAvailable,
+        params: {'username': username},
+      );
+      final data = MapUtils.asMap(res.data);
+      final available =
+          MapUtils.handleNullableBoolKey(data, 'available') ?? false;
+      return available ? null : 'That username is already taken';
+    } on DioException catch (e) {
+      // 400 carries the format rule; anything else is a real failure.
+      final data = MapUtils.asMap(e.response?.data);
+      return MapUtils.handleNullableStringKey(data, 'message') ??
+          'Could not check that username';
+    }
+  }
+
   Future<void> signOut() async {
     await _storage.clearAll();
   }

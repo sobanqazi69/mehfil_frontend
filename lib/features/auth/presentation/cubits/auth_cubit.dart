@@ -83,6 +83,31 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  /// Saves profile edits and syncs the result back into auth state so every
+  /// screen showing the avatar/name updates at once.
+  Future<void> updateProfile({String? name, String? username}) async {
+    try {
+      final user = await _repo.updateProfile(name: name, username: username);
+      updateUser(user);
+    } catch (e) {
+      DebugLogger.error('updateProfile failed', error: e);
+      rethrow;
+    }
+  }
+
+  Future<void> uploadAvatar(String filePath) async {
+    try {
+      final user = await _repo.uploadAvatar(filePath);
+      updateUser(user);
+    } catch (e) {
+      DebugLogger.error('uploadAvatar failed', error: e);
+      rethrow;
+    }
+  }
+
+  Future<String?> usernameTakenReason(String username) =>
+      _repo.usernameTakenReason(username);
+
   Future<void> _connectSocket() async {
     final token = await _storage.getAccessToken();
     if (token != null) _socket.connect(token);

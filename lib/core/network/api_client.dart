@@ -32,6 +32,17 @@ class ApiClient {
       _dio.patch(url, data: data);
 
   Future<Response> delete(String url) => _dio.delete(url);
+
+  Future<Response> postMultipart(
+    String url, {
+    required String filePath,
+    required String field,
+  }) async {
+    final form = FormData.fromMap({
+      field: await MultipartFile.fromFile(filePath),
+    });
+    return _dio.post(url, data: form);
+  }
 }
 
 class _AuthInterceptor extends Interceptor {
