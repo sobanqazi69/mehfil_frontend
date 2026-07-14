@@ -70,4 +70,32 @@ class MapUtils {
       return null;
     }
   }
+
+  /// Coerces any raw value (API body, socket payload) into a map.
+  ///
+  /// Never throws. A hard `value as Map<String, dynamic>` blows up when the
+  /// server returns null, a String (an HTML error page), or a Map with
+  /// non-String keys — use this instead.
+  static Map<String, dynamic> asMap(dynamic value) {
+    try {
+      if (value is Map) return Map<String, dynamic>.from(value);
+      return const {};
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// Coerces a raw value into a list of maps, dropping any entry that isn't a
+  /// usable map. One malformed element can no longer take down the whole list.
+  static List<Map<String, dynamic>> asMapList(dynamic value) {
+    try {
+      if (value is! List) return const [];
+      return value
+          .where((e) => e is Map)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
 }

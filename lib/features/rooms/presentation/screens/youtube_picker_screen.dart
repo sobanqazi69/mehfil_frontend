@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../../../../core/utils/debug_logger.dart';
 import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
 
 class YoutubePickerScreen extends StatefulWidget {
-  const YoutubePickerScreen({super.key});
+  /// Only a room that already exists can queue a video up next. When the picker
+  /// is opened from home to start a new room, there is nothing to queue onto,
+  /// so PIN NEXT is hidden.
+  final bool allowQueue;
+
+  const YoutubePickerScreen({super.key, this.allowQueue = false});
 
   @override
   State<YoutubePickerScreen> createState() => _YoutubePickerScreenState();
@@ -33,6 +39,31 @@ class _YoutubePickerScreenState extends State<YoutubePickerScreen> {
         ),
       )
       ..loadRequest(Uri.parse('https://m.youtube.com'));
+  }
+
+  /// The webview title is "<video title> - YouTube"; strip the suffix so the
+  /// room gets a usable name.
+  Future<String> _videoTitle() async {
+    try {
+      final raw = await _ctrl.getTitle();
+      final cleaned = (raw ?? '')
+          .replaceAll(RegExp(r'\s*-\s*YouTube\s*$'), '')
+          .trim();
+      return cleaned.isEmpty ? 'Watch Party' : cleaned;
+    } catch (e) {
+      DebugLogger.error('getTitle failed', error: e);
+      return 'Watch Party';
+    }
+  }
+
+  Future<void> _pick(String action) async {
+    final title = await _videoTitle();
+    if (!mounted) return;
+    Navigator.pop(context, {
+      'id': _currentVideoId,
+      'action': action,
+      'title': title,
+    });
   }
 
   void _extractVideoId(String url) {
@@ -99,8 +130,11 @@ class _YoutubePickerScreenState extends State<YoutubePickerScreen> {
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: () => Navigator.pop(context, {'id': _currentVideoId, 'action': 'play'}),
-                          borderRadius: const BorderRadius.horizontal(left: Radius.circular(30)),
+                          onTap: () => _pick('play'),
+                          borderRadius: widget.allowQueue
+                              ? const BorderRadius.horizontal(
+                                  left: Radius.circular(30))
+                              : BorderRadius.circular(30),
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             child: const Center(
@@ -117,29 +151,32 @@ class _YoutubePickerScreenState extends State<YoutubePickerScreen> {
                         ),
                       ),
                     ),
-                    Container(width: 1, height: 30, color: Colors.white24),
-                    Expanded(
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => Navigator.pop(context, {'id': _currentVideoId, 'action': 'pin'}),
-                          borderRadius: const BorderRadius.horizontal(right: Radius.circular(30)),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            child: const Center(
-                              child: Text(
-                                'PIN NEXT',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.2,
+                    if (widget.allowQueue) ...[
+                      Container(width: 1, height: 30, color: Colors.white24),
+                      Expanded(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => _pick('pin'),
+                            borderRadius: const BorderRadius.horizontal(
+                                right: Radius.circular(30)),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: const Center(
+                                child: Text(
+                                  'PIN NEXT',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

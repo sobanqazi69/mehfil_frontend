@@ -4,9 +4,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
+import '../../../../core/utils/debug_logger.dart';
+import '../../../../core/widgets/app_loader.dart';
+import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/cubits/auth_cubit.dart';
 import '../../../auth/presentation/cubits/auth_state.dart';
+import '../../../rooms/presentation/cubits/room_list_cubit.dart';
 import '../../../rooms/presentation/screens/browse_rooms_screen.dart';
+import '../../../rooms/presentation/screens/youtube_picker_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final void Function(int roomId) onRoomTap;
@@ -126,10 +131,39 @@ class _AvatarWidget extends StatelessWidget {
 class _CreateRoomFab extends StatelessWidget {
   const _CreateRoomFab();
 
+  Future<void> _createRoom(BuildContext context) async {
+    try {
+      final result = await Navigator.push<Map>(
+        context,
+        MaterialPageRoute(builder: (_) => const YoutubePickerScreen()),
+      );
+      if (result == null || !context.mounted) return;
+
+      final youtubeId = result['id'] as String?;
+      if (youtubeId == null || youtubeId.isEmpty) return;
+      final name = (result['title'] as String?) ?? 'Watch Party';
+
+      AppLoader.show(context);
+      final room = await context
+          .read<RoomListCubit>()
+          .createRoom(name: name, youtubeId: youtubeId);
+      if (!context.mounted) return;
+      AppLoader.hide();
+
+      context.push('/room/${room.id}');
+    } catch (e) {
+      DebugLogger.error('createRoom from home failed', error: e);
+      if (context.mounted) {
+        AppLoader.hide();
+        AppSnackbar.error(context, e.toString());
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.push('/youtube-picker'),
+      onTap: () => _createRoom(context),
       child: Container(
         width: 56,
         height: 56,

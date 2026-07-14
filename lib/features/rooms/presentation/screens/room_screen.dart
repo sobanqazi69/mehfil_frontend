@@ -6,13 +6,12 @@ import '../../../../config/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/cubits/auth_cubit.dart';
 import '../../../auth/presentation/cubits/auth_state.dart';
-import '../../data/models/room_member_model.dart';
 import '../../data/models/room_model.dart';
 import '../cubits/room_cubit.dart';
 import '../cubits/room_state.dart';
 import '../widgets/chat_bubble.dart';
+import '../widgets/listeners_drawer.dart';
 import '../widgets/mic_fab.dart';
-import '../widgets/participant_tile.dart';
 import '../widgets/room_video_player.dart';
 import 'youtube_picker_screen.dart';
 
@@ -76,7 +75,9 @@ class _RoomScreenState extends State<RoomScreen> {
   Future<void> _openYoutubePicker() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const YoutubePickerScreen()),
+      MaterialPageRoute(
+        builder: (_) => const YoutubePickerScreen(allowQueue: true),
+      ),
     );
 
     if (result != null && result is Map) {
@@ -143,6 +144,7 @@ class _RoomScreenState extends State<RoomScreen> {
             onTap: () => FocusScope.of(context).unfocus(),
             child: Scaffold(
               backgroundColor: AppColors.lightBg,
+              endDrawer: const ListenersDrawer(),
               body: Column(
                 children: [
                   // 1. Optimized Header
@@ -155,6 +157,8 @@ class _RoomScreenState extends State<RoomScreen> {
                         room: data.room,
                         onLeave: _confirmLeave,
                         isHost: data.isHost,
+                        onOpenListeners: () =>
+                            Scaffold.of(context).openEndDrawer(),
                         onToggleQueue: data.isHost ? _openYoutubePicker : null,
                       );
                     },
@@ -180,21 +184,7 @@ class _RoomScreenState extends State<RoomScreen> {
                   },
                 ),
 
-                // 3. Optimized Participants
-                BlocSelector<RoomCubit, RoomState, _ParticipantsData>(
-                  selector: (s) => (s is RoomLoaded)
-                      ? _ParticipantsData(s.members, s.room.hostId, s.mutedMap)
-                      : _ParticipantsData.empty(),
-                  builder: (context, data) {
-                    return _ParticipantsSection(
-                      members: data.members,
-                      hostId: data.hostId,
-                      mutedMap: data.mutedMap,
-                    );
-                  },
-                ),
-
-                // 4. Optimized Chat List
+                // 3. Optimized Chat List
                 Expanded(
                   child: BlocSelector<RoomCubit, RoomState, List>(
                     selector: (s) => (s is RoomLoaded) ? s.messages : [],
@@ -242,12 +232,14 @@ class _RoomHeader extends StatelessWidget {
   final RoomModel room;
   final VoidCallback onLeave;
   final bool isHost;
+  final VoidCallback onOpenListeners;
   final VoidCallback? onToggleQueue;
 
   const _RoomHeader({
     required this.room,
     required this.onLeave,
     required this.isHost,
+    required this.onOpenListeners,
     this.onToggleQueue,
   });
 
@@ -284,129 +276,27 @@ class _RoomHeader extends StatelessWidget {
                     Border.all(color: AppColors.error.withValues(alpha: 0.35)),
               ),
               child: const Icon(
-                Icons.logout_rounded,
+                Icons.close_rounded,
                 color: AppColors.error,
-                size: 18,
+                size: 20,
               ),
             ),
           ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  room.name,
-                  style: AppTextStyles.heading3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Row(
-                  children: [
-                    _LivePulse(),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${room.memberCount} listening',
-                      style: AppTextStyles.labelSmall
-                          .copyWith(color: AppColors.grey),
-                    ),
-                    if (room.category != null) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.purple.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                              color: AppColors.purple.withValues(alpha: 0.5)),
-                        ),
-                        child: Text(
-                          room.category!,
-                          style: AppTextStyles.labelSmall.copyWith(
-                              color: AppColors.purpleLight, fontSize: 10),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
+          const Spacer(),
           if (isHost && onToggleQueue != null)
             _HeaderAction(
               icon: Icons.playlist_add_rounded,
               color: AppColors.cyan,
               onTap: onToggleQueue!,
             ),
+          _HeaderAction(
+            icon: Icons.people_alt_rounded,
+            color: AppColors.grey,
+            onTap: onOpenListeners,
+          ),
           const SizedBox(width: 4),
         ],
       ),
-    );
-  }
-}
-
-class _LivePulse extends StatefulWidget {
-  @override
-  State<_LivePulse> createState() => _LivePulseState();
-}
-
-class _LivePulseState extends State<_LivePulse>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat(reverse: true);
-    _scale = Tween<double>(begin: 0.8, end: 1.2).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ScaleTransition(
-          scale: _scale,
-          child: Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              color: AppColors.cyan,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.cyan.withValues(alpha: 0.6),
-                  blurRadius: 6,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          'LIVE',
-          style: AppTextStyles.labelSmall.copyWith(
-            color: AppColors.cyan,
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -442,75 +332,6 @@ class _HeaderAction extends StatelessWidget {
 }
 
 // ── Participants ──────────────────────────────────────────────────────────
-
-class _ParticipantsSection extends StatelessWidget {
-  final List<RoomMemberModel> members;
-  final int hostId;
-  final Map<int, bool> mutedMap;
-
-  const _ParticipantsSection({
-    required this.members,
-    required this.hostId,
-    required this.mutedMap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        border: const Border(
-          bottom: BorderSide(color: AppColors.divider),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-            child: Row(
-              children: [
-                Icon(Icons.people_alt_rounded,
-                    size: 14, color: AppColors.grey.withValues(alpha: 0.7)),
-                const SizedBox(width: 6),
-                Text(
-                  '${members.length} in room',
-                  style: AppTextStyles.labelSmall
-                      .copyWith(color: AppColors.grey.withValues(alpha: 0.7)),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 92,
-            child: members.isEmpty
-                ? Center(
-                    child: Text(
-                      'Waiting for others to join...',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.grey.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  )
-                : ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    itemCount: members.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 14),
-                    itemBuilder: (_, i) => ParticipantTile(
-                      member: members[i],
-                      isMuted: mutedMap[members[i].userId] ?? true,
-                      isHost: members[i].userId == hostId,
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Chat Bar ──────────────────────────────────────────────────────────────
 
 class _ChatBar extends StatelessWidget {
   final TextEditingController ctrl;
@@ -880,22 +701,3 @@ class _VideoData {
       isHost.hashCode;
 }
 
-class _ParticipantsData {
-  final List<RoomMemberModel> members;
-  final int hostId;
-  final Map<int, bool> mutedMap;
-  _ParticipantsData(this.members, this.hostId, this.mutedMap);
-  static _ParticipantsData empty() => _ParticipantsData([], 0, {});
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _ParticipantsData &&
-          members.length == other.members.length &&
-          hostId == other.hostId &&
-          mutedMap.length == other.mutedMap.length;
-
-  @override
-  int get hashCode =>
-      members.length.hashCode ^ hostId.hashCode ^ mutedMap.length.hashCode;
-}

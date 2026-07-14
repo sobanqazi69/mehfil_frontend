@@ -3,6 +3,7 @@ import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/socket_service.dart';
 import '../../../../core/utils/debug_logger.dart';
+import '../../../../core/utils/map_utils.dart';
 import '../models/message_model.dart';
 import '../models/room_member_model.dart';
 import '../models/room_model.dart';
@@ -18,10 +19,8 @@ class RoomRepository {
   Future<List<RoomModel>> browseRooms({int page = 1}) async {
     try {
       final res = await _api.get(ApiEndpoints.rooms, params: {'page': page});
-      final list = (res.data['rooms'] as List?) ?? [];
-      return list
-          .map((e) => RoomModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final list = MapUtils.asMapList(MapUtils.asMap(res.data)['rooms']);
+      return list.map(RoomModel.fromJson).toList();
     } on DioException catch (e) {
       DebugLogger.error('browseRooms failed', error: e);
       throw _parseError(e);
@@ -31,10 +30,8 @@ class RoomRepository {
   Future<List<RoomModel>> getMyRooms() async {
     try {
       final res = await _api.get(ApiEndpoints.myRooms);
-      final list = (res.data as List?) ?? [];
-      return list
-          .map((e) => RoomModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final list = MapUtils.asMapList(res.data);
+      return list.map(RoomModel.fromJson).toList();
     } on DioException catch (e) {
       DebugLogger.error('getMyRooms failed', error: e);
       throw _parseError(e);
@@ -50,7 +47,7 @@ class RoomRepository {
         'name': name,
         'youtubeId': youtubeId,
       });
-      return RoomModel.fromJson(res.data as Map<String, dynamic>);
+      return RoomModel.fromJson(MapUtils.asMap(res.data));
     } on DioException catch (e) {
       DebugLogger.error('createRoom failed', error: e);
       throw _parseError(e);
@@ -60,7 +57,7 @@ class RoomRepository {
   Future<RoomModel> getRoom(int id) async {
     try {
       final res = await _api.get(ApiEndpoints.room(id));
-      return RoomModel.fromJson(res.data as Map<String, dynamic>);
+      return RoomModel.fromJson(MapUtils.asMap(res.data));
     } on DioException catch (e) {
       DebugLogger.error('getRoom failed', error: e);
       throw _parseError(e);
@@ -79,10 +76,8 @@ class RoomRepository {
   Future<List<MessageModel>> getRoomMessages(int roomId) async {
     try {
       final res = await _api.get(ApiEndpoints.roomMessages(roomId));
-      final list = (res.data as List?) ?? [];
-      return list
-          .map((e) => MessageModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final list = MapUtils.asMapList(res.data);
+      return list.map(MessageModel.fromJson).toList();
     } on DioException catch (e) {
       DebugLogger.error('getRoomMessages failed', error: e);
       throw _parseError(e);
@@ -93,7 +88,7 @@ class RoomRepository {
     try {
       final res = await _api.post(ApiEndpoints.voiceToken,
           data: {'roomId': roomId});
-      return res.data as Map<String, dynamic>;
+      return MapUtils.asMap(res.data);
     } on DioException catch (e) {
       DebugLogger.error('getVoiceToken failed', error: e);
       throw _parseError(e);
@@ -144,12 +139,11 @@ class RoomRepository {
   void onRoomMembers(Function(List<RoomMemberModel>, int? hostId) callback) {
     _socket.on('room:members', (data) {
       try {
-        final members = (data['members'] as List?)
-                ?.map((e) => RoomMemberModel.fromJson(
-                    e as Map<String, dynamic>))
-                .toList() ??
-            [];
-        final hostId = data['hostId'] as int?;
+        final payload = MapUtils.asMap(data);
+        final members = MapUtils.asMapList(payload['members'])
+            .map(RoomMemberModel.fromJson)
+            .toList();
+        final hostId = MapUtils.handleNullableIntKey(payload, 'hostId');
         callback(members, hostId);
       } catch (e) {
         DebugLogger.error('onRoomMembers parse error', error: e);
@@ -160,7 +154,7 @@ class RoomRepository {
   void onVideoState(Function(Map<String, dynamic>) callback) {
     _socket.on('video:state', (data) {
       try {
-        callback(data as Map<String, dynamic>);
+        callback(MapUtils.asMap(data));
       } catch (e) {
         DebugLogger.error('onVideoState parse error', error: e);
       }
@@ -170,7 +164,7 @@ class RoomRepository {
   void onChatMessage(Function(MessageModel) callback) {
     _socket.on('chat:message', (data) {
       try {
-        callback(MessageModel.fromJson(data as Map<String, dynamic>));
+        callback(MessageModel.fromJson(MapUtils.asMap(data)));
       } catch (e) {
         DebugLogger.error('onChatMessage parse error', error: e);
       }
@@ -180,8 +174,10 @@ class RoomRepository {
   void onMicState(Function(int userId, bool isMuted) callback) {
     _socket.on('mic:state', (data) {
       try {
-        final userId = (data['userId'] as num?)?.toInt() ?? 0;
-        final isMuted = data['isMuted'] as bool? ?? true;
+        final payload = MapUtils.asMap(data);
+        final userId = MapUtils.handleNullableIntKey(payload, 'userId') ?? 0;
+        final isMuted =
+            MapUtils.handleNullableBoolKey(payload, 'isMuted') ?? true;
         callback(userId, isMuted);
       } catch (e) {
         DebugLogger.error('onMicState parse error', error: e);
@@ -196,7 +192,9 @@ class RoomRepository {
   void onSettingsUpdated(Function(bool isPublic) callback) {
     _socket.on('room:settings_updated', (data) {
       try {
-        final isPublic = data['isPublic'] as bool? ?? true;
+        final isPublic = MapUtils.handleNullableBoolKey(
+                MapUtils.asMap(data), 'isPublic') ??
+            true;
         callback(isPublic);
       } catch (e) {
         DebugLogger.error('onSettingsUpdated parse error', error: e);
@@ -214,7 +212,10 @@ class RoomRepository {
   }
 
   String _parseError(DioException e) =>
-      (e.response?.data as Map?)?['message']?.toString() ??
+      MapUtils.handleNullableStringKey(
+        MapUtils.asMap(e.response?.data),
+        'message',
+      ) ??
       'Something went wrong.';
 }
 

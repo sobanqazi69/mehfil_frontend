@@ -3,6 +3,7 @@ import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/services/secure_storage_service.dart';
 import '../../../../core/utils/debug_logger.dart';
+import '../../../../core/utils/map_utils.dart';
 import '../models/user_model.dart';
 
 class AuthRepository {
@@ -17,13 +18,19 @@ class AuthRepository {
         ApiEndpoints.googleAuth,
         data: {'idToken': idToken},
       );
-      final data = res.data as Map<String, dynamic>;
+      final data = MapUtils.asMap(res.data);
+      final accessToken = MapUtils.handleNullableStringKey(data, 'accessToken');
+      final refreshToken =
+          MapUtils.handleNullableStringKey(data, 'refreshToken');
+      if (accessToken == null || refreshToken == null) {
+        throw 'Sign-in failed. Please try again.';
+      }
       await _storage.saveTokens(
-        accessToken: data['accessToken'] as String,
-        refreshToken: data['refreshToken'] as String,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
       );
       return UserModel.fromJson(
-          data['user'] as Map<String, dynamic>);
+          MapUtils.handleNullableMapKey(data, 'user') ?? const {});
     } on DioException catch (e) {
       DebugLogger.error('signInWithGoogle failed', error: e);
       throw _parseError(e);
@@ -34,7 +41,7 @@ class AuthRepository {
     try {
       if (await _storage.getAccessToken() == null) return null;
       final res = await _api.get(ApiEndpoints.me);
-      return UserModel.fromJson(res.data as Map<String, dynamic>);
+      return UserModel.fromJson(MapUtils.asMap(res.data));
     } on DioException catch (e) {
       DebugLogger.error('getMe failed', error: e);
       if (e.response?.statusCode == 401) return null;
@@ -47,7 +54,10 @@ class AuthRepository {
   }
 
   String _parseError(DioException e) {
-    return (e.response?.data as Map?)?['message']?.toString() ??
+    return MapUtils.handleNullableStringKey(
+          MapUtils.asMap(e.response?.data),
+          'message',
+        ) ??
         'Something went wrong. Please try again.';
   }
 }
