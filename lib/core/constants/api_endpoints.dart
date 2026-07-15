@@ -4,6 +4,11 @@ class ApiEndpoints {
   static const String _base = 'https://mehfil.microdesk.tech/api';
   static const String socketUrl = 'https://mehfil.microdesk.tech';
 
+  // Voice runs on the shared LiveKit server (nginx-fronted, TLS). Rooms are
+  // namespaced `mehfil_room_<id>` server-side so they never collide with other
+  // apps on the same LiveKit instance.
+  static const String livekitUrl = 'wss://livekit.bazmivoicechat.tech';
+
   // Auth
   static const String googleAuth  = '$_base/auth/google';
   static const String refreshToken = '$_base/auth/refresh';

@@ -6,10 +6,9 @@ import '../../data/models/room_member_model.dart';
 import '../cubits/room_cubit.dart';
 import '../cubits/room_state.dart';
 
-/// Row of avatars for everyone whose mic is currently on.
-///
-/// NOTE: this reflects mic state (unmuted), not voice activity. There is no
-/// LiveKit connection yet, so the app cannot know who is actually talking.
+/// Header row of avatars for everyone whose mic is on. Each avatar grows a
+/// glowing ring while that person is actually speaking, driven live by
+/// LiveKit's active-speaker levels.
 class UnmutedAvatars extends StatelessWidget {
   const UnmutedAvatars({super.key});
 
@@ -28,23 +27,58 @@ class UnmutedAvatars extends StatelessWidget {
 
         if (unmuted.isEmpty) return const SizedBox.shrink();
 
-        return SizedBox(
-          height: 34,
-          child: Center(
-            child: ListView.separated(
+        // Only the speaking rings listen to the level notifier, so the firehose
+        // of audio updates never rebuilds the row itself.
+        return ValueListenableBinder(
+          notifier: context.read<RoomCubit>().speakingLevels,
+          unmuted: unmuted,
+          hostId: state.room.hostId,
+        );
+      },
+    );
+  }
+}
+
+class ValueListenableBinder extends StatelessWidget {
+  final ValueNotifier<Map<String, double>> notifier;
+  final List<RoomMemberModel> unmuted;
+  final int hostId;
+
+  const ValueListenableBinder({
+    super.key,
+    required this.notifier,
+    required this.unmuted,
+    required this.hostId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: Center(
+        child: ValueListenableBuilder<Map<String, double>>(
+          valueListenable: notifier,
+          builder: (_, levels, __) {
+            return ListView.separated(
               scrollDirection: Axis.horizontal,
               shrinkWrap: true,
               padding: const EdgeInsets.symmetric(horizontal: 4),
               itemCount: unmuted.length,
               separatorBuilder: (_, __) => const SizedBox(width: 6),
-              itemBuilder: (_, i) => _UnmutedAvatar(
-                member: unmuted[i],
-                isHost: unmuted[i].userId == state.room.hostId,
-              ),
-            ),
-          ),
-        );
-      },
+              itemBuilder: (_, i) {
+                final m = unmuted[i];
+                // LiveKit identity is the userId as a string.
+                final level = levels['${m.userId}'] ?? 0;
+                return _UnmutedAvatar(
+                  member: m,
+                  isHost: m.userId == hostId,
+                  speaking: level > 0.05,
+                );
+              },
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -52,30 +86,42 @@ class UnmutedAvatars extends StatelessWidget {
 class _UnmutedAvatar extends StatelessWidget {
   final RoomMemberModel member;
   final bool isHost;
+  final bool speaking;
 
-  const _UnmutedAvatar({required this.member, required this.isHost});
+  const _UnmutedAvatar({
+    required this.member,
+    required this.isHost,
+    required this.speaking,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final ring = isHost ? AppColors.gold : AppColors.success;
+
     return Tooltip(
       message: member.name,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
         width: 32,
         height: 32,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: AppColors.primaryGradient,
           border: Border.all(
-            color: isHost ? AppColors.gold : AppColors.success,
-            width: 2,
+            color: speaking ? AppColors.success : ring,
+            // Ring thickens while talking — the cue you notice at a glance.
+            width: speaking ? 3 : 2,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.success.withValues(alpha: 0.35),
-              blurRadius: 6,
-              spreadRadius: 1,
-            ),
-          ],
+          boxShadow: speaking
+              ? [
+                  BoxShadow(
+                    color: AppColors.success.withValues(alpha: 0.6),
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                  ),
+                ]
+              : null,
         ),
         child: ClipOval(
           child: member.avatar != null

@@ -1,4 +1,9 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../../../../core/network/livekit_service.dart';
+import '../../../../core/services/room_foreground_service.dart';
 import '../../../../core/utils/debug_logger.dart';
 import '../../../../core/utils/map_utils.dart';
 import '../../data/models/message_model.dart';
@@ -8,11 +13,27 @@ import 'room_state.dart';
 
 class RoomCubit extends Cubit<RoomState> {
   final RoomRepository _repo;
+  final LiveKitService _livekit;
   int? _roomId;
 
   int? _userId;
 
-  RoomCubit(this._repo) : super(const RoomInitial());
+  /// identity (userId string) → audio level for whoever is currently speaking.
+  /// Kept off the bloc state and fed via a throttled ValueNotifier so the
+  /// speaking rings repaint ~8fps without rebuilding the whole room tree.
+  final speakingLevels = ValueNotifier<Map<String, double>>({});
+  Map<String, double>? _pendingLevels;
+  Timer? _levelsThrottle;
+
+  RoomCubit(this._repo, {LiveKitService? livekit})
+      : _livekit = livekit ?? LiveKitService.instance,
+        super(const RoomInitial());
+
+  /// The user is audible only when neither mute applies.
+  bool get _shouldMicBeLive {
+    final s = state;
+    return s is RoomLoaded && !s.isMicMuted && !s.isHostMuted;
+  }
 
   Future<void> enterRoom(int roomId, int userId) async {
     try {
@@ -39,10 +60,72 @@ class RoomCubit extends Cubit<RoomState> {
 
       _repo.joinRoom(roomId, userId);
       _listenToSocketEvents();
+
+      // Voice is best-effort and must never block entering the room, so fire it
+      // without awaiting: chat/video are usable instantly while audio connects.
+      unawaited(_startVoice(
+        MapUtils.handleNullableStringKey(voice, 'token'),
+        MapUtils.handleNullableStringKey(voice, 'roomName'),
+      ));
     } catch (e) {
       DebugLogger.error('enterRoom failed', error: e);
       if (!isClosed) emit(RoomError(e.toString()));
     }
+  }
+
+  Future<void> _startVoice(String? token, String? roomName) async {
+    try {
+      _livekit.onActiveSpeakersChanged = _onSpeakers;
+      if (token == null || token.isEmpty) return;
+
+      // Order matters on Android 14+: a microphone-typed foreground service
+      // cannot start until RECORD_AUDIO is actually granted, or the OS kills
+      // the process. So request the permission FIRST, connect, and only start
+      // the keep-alive service once we hold the permission.
+      final micGranted = await _requestMicPermission();
+
+      await _livekit.connect(token);
+      // Reflect whatever mute state we already hold (host may have us muted).
+      await _livekit.setMicEnabled(_shouldMicBeLive);
+
+      if (micGranted) {
+        unawaited(RoomForegroundService.instance
+            .start(roomName: roomName ?? 'Room'));
+      }
+    } catch (e) {
+      DebugLogger.error('startVoice failed', error: e);
+    }
+  }
+
+  Future<bool> _requestMicPermission() async {
+    try {
+      final status = await Permission.microphone.request();
+      return status.isGranted;
+    } catch (e) {
+      DebugLogger.error('mic permission request failed', error: e);
+      return false;
+    }
+  }
+
+  /// Push the current effective-mute state to the live mic. Called after any
+  /// change that could flip our own audibility. Idempotent and non-blocking.
+  void _syncMic() {
+    if (!_livekit.isConnected) return;
+    final live = _shouldMicBeLive;
+    if (live == _livekit.isMicEnabled) return;
+    unawaited(_livekit.setMicEnabled(live));
+  }
+
+  void _onSpeakers(Map<String, double> levels) {
+    if (isClosed) return;
+    // Coalesce the firehose of speaker events into one repaint per ~120ms.
+    _pendingLevels = levels;
+    _levelsThrottle ??= Timer(const Duration(milliseconds: 120), () {
+      _levelsThrottle = null;
+      final pending = _pendingLevels;
+      _pendingLevels = null;
+      if (pending != null) speakingLevels.value = pending;
+    });
   }
 
   void _listenToSocketEvents() {
@@ -74,6 +157,7 @@ class RoomCubit extends Cubit<RoomState> {
         isHostMuted:
             me != null ? (hostMuted[me] ?? s.isHostMuted) : s.isHostMuted,
       ));
+      _syncMic();
     }
   }
 
@@ -99,6 +183,7 @@ class RoomCubit extends Cubit<RoomState> {
         isMicMuted: userId == _userId ? isMuted : s.isMicMuted,
         isHostMuted: userId == _userId ? mutedByHost : s.isHostMuted,
       ));
+      if (userId == _userId) _syncMic();
     }
   }
 
@@ -109,6 +194,7 @@ class RoomCubit extends Cubit<RoomState> {
       final s = state as RoomLoaded;
       // Snap the button back — our optimistic unmute never took effect.
       emit(s.copyWith(isMicMuted: true, isHostMuted: true));
+      _syncMic();
     }
     micBlocked?.call(message);
   }
@@ -127,6 +213,7 @@ class RoomCubit extends Cubit<RoomState> {
         isMicMuted: amHost ? s.isMicMuted : true,
         isHostMuted: amHost ? s.isHostMuted : true,
       ));
+      _syncMic();
     }
   }
 
@@ -176,7 +263,10 @@ class RoomCubit extends Cubit<RoomState> {
 
     final newMuted = !s.isMicMuted;
     _repo.toggleMic(_roomId!, userId, newMuted);
-    if (!isClosed) emit(s.copyWith(isMicMuted: newMuted));
+    if (!isClosed) {
+      emit(s.copyWith(isMicMuted: newMuted));
+      _syncMic();
+    }
   }
 
   void muteAll() {
@@ -220,7 +310,16 @@ class RoomCubit extends Cubit<RoomState> {
   void _onKicked() {
     if (isClosed) return;
     _repo.offRoomListeners();
+    _stopVoice();
     emit(const RoomKicked());
+  }
+
+  /// Release the mic, drop the LiveKit connection, and stop the Android
+  /// foreground service. Safe to call more than once.
+  void _stopVoice() {
+    _livekit.onActiveSpeakersChanged = null;
+    unawaited(_livekit.disconnect());
+    unawaited(RoomForegroundService.instance.stop());
   }
 
   void loadVideo(String youtubeId) {
@@ -238,6 +337,7 @@ class RoomCubit extends Cubit<RoomState> {
       _repo.leaveRoom(_roomId!, userId);
       _repo.offRoomListeners();
     }
+    _stopVoice();
     if (!isClosed) emit(const RoomInitial());
   }
 
@@ -259,6 +359,10 @@ class RoomCubit extends Cubit<RoomState> {
   @override
   Future<void> close() {
     _repo.offRoomListeners();
+    _stopVoice();
+    _levelsThrottle?.cancel();
+    _levelsThrottle = null;
+    speakingLevels.dispose();
     return super.close();
   }
 }
