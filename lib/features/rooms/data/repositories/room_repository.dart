@@ -118,6 +118,10 @@ class RoomRepository {
     _socket.emit('mic:mute_all', {'roomId': roomId});
   }
 
+  void unmuteAll(int roomId) {
+    _socket.emit('mic:unmute_all', {'roomId': roomId});
+  }
+
   /// Host-only: mute or unmute another listener.
   void forceToggleMic(int roomId, int targetUserId, bool isMuted) {
     _socket.emit('mic:force_toggle', {

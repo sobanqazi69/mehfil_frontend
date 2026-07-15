@@ -184,6 +184,20 @@ class RoomCubit extends Cubit<RoomState> {
     _repo.muteAll(_roomId!);
   }
 
+  void unmuteAll() {
+    if (_roomId == null) return;
+    _repo.unmuteAll(_roomId!);
+  }
+
+  /// True when the host has at least one listener under a host-mute.
+  bool get anyoneHostMuted {
+    if (state is! RoomLoaded) return false;
+    final s = state as RoomLoaded;
+    return s.members.any((m) =>
+        m.userId != s.room.hostId &&
+        (s.hostMutedMap[m.userId] ?? m.mutedByHost));
+  }
+
   /// Host-only. The server re-checks that we are the host before acting; the
   /// UI only offers these on other listeners.
   void hostToggleMic(int targetUserId, bool isMuted) {

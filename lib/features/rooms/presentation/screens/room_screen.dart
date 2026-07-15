@@ -15,6 +15,7 @@ import '../cubits/room_state.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/listeners_drawer.dart';
 import '../widgets/mic_fab.dart';
+import '../widgets/room_settings_sheet.dart';
 import '../widgets/room_video_player.dart';
 import '../widgets/unmuted_avatars.dart';
 import 'youtube_picker_screen.dart';
@@ -195,6 +196,9 @@ class _RoomScreenState extends State<RoomScreen> {
                         isHost: data.isHost,
                         onOpenListeners: () =>
                             Scaffold.of(context).openEndDrawer(),
+                        onOpenSettings: data.isHost
+                            ? () => showRoomSettingsSheet(context)
+                            : null,
                         onToggleQueue: data.isHost ? _openYoutubePicker : null,
                       );
                     },
@@ -279,6 +283,7 @@ class _RoomHeader extends StatelessWidget {
   final VoidCallback onLeave;
   final bool isHost;
   final VoidCallback onOpenListeners;
+  final VoidCallback? onOpenSettings;
   final VoidCallback? onToggleQueue;
 
   const _RoomHeader({
@@ -286,6 +291,7 @@ class _RoomHeader extends StatelessWidget {
     required this.onLeave,
     required this.isHost,
     required this.onOpenListeners,
+    this.onOpenSettings,
     this.onToggleQueue,
   });
 
@@ -328,6 +334,13 @@ class _RoomHeader extends StatelessWidget {
               ),
             ),
           ),
+          // Host-only: privacy + room-wide mic.
+          if (onOpenSettings != null)
+            _HeaderAction(
+              icon: Icons.tune_rounded,
+              color: AppColors.grey,
+              onTap: onOpenSettings!,
+            ),
           const Expanded(child: UnmutedAvatars()),
           if (isHost && onToggleQueue != null)
             _HeaderAction(
