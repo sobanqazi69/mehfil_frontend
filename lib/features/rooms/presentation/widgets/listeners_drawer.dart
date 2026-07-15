@@ -25,60 +25,64 @@ class ListenersDrawer extends StatelessWidget {
       child: DecoratedBox(
         decoration: const BoxDecoration(gradient: AppColors.roomGradient),
         child: SafeArea(
-        child: BlocBuilder<RoomCubit, RoomState>(
-          buildWhen: (prev, curr) => curr is RoomLoaded,
-          builder: (context, state) {
-            if (state is! RoomLoaded) {
-              return const Center(
-                  child: CircularProgressIndicator(color: AppColors.cyan));
-            }
+          child: BlocBuilder<RoomCubit, RoomState>(
+            buildWhen: (prev, curr) => curr is RoomLoaded,
+            builder: (context, state) {
+              if (state is! RoomLoaded) {
+                return const Center(
+                    child: CircularProgressIndicator(color: AppColors.cyan));
+              }
 
-            final hostId = state.room.hostId;
-            // Backend sends members oldest-join-first; lift the host out so it
-            // pins to the top while everyone else keeps that join order.
-            final members = [
-              ...state.members.where((m) => m.userId == hostId),
-              ...state.members.where((m) => m.userId != hostId),
-            ];
+              final hostId = state.room.hostId;
+              // Backend sends members oldest-join-first; lift the host out so it
+              // pins to the top while everyone else keeps that join order.
+              final members = [
+                ...state.members.where((m) => m.userId == hostId),
+                ...state.members.where((m) => m.userId != hostId),
+              ];
 
-            final authState = context.watch<AuthCubit>().state;
-            final currentUserId =
-                authState is AuthAuthenticated ? authState.user.id : 0;
-            final amHost = currentUserId == hostId;
+              final authState = context.watch<AuthCubit>().state;
+              final currentUserId =
+                  authState is AuthAuthenticated ? authState.user.id : 0;
+              final amHost = currentUserId == hostId;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _DrawerHeader(count: members.length),
-                Expanded(
-                  child: members.isEmpty
-                      ? const _EmptyListeners()
-                      : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: members.length,
-              itemBuilder: (_, i) {
-                final m = members[i];
-                // Live socket state overrides what the roster payload carried.
-                final selfMuted = state.mutedMap[m.userId] ?? m.isMuted;
-                final hostMuted = state.hostMutedMap[m.userId] ?? m.mutedByHost;
-                // Host can act on everyone but themselves.
-                final canManage = amHost && m.userId != currentUserId;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _DrawerHeader(count: members.length),
+                  Expanded(
+                    child: members.isEmpty
+                        ? const _EmptyListeners()
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            itemCount: members.length,
+                            itemBuilder: (_, i) {
+                              final m = members[i];
+                              // Live socket state overrides what the roster payload carried.
+                              final selfMuted =
+                                  state.mutedMap[m.userId] ?? m.isMuted;
+                              final hostMuted =
+                                  state.hostMutedMap[m.userId] ?? m.mutedByHost;
+                              // Host can act on everyone but themselves.
+                              final canManage =
+                                  amHost && m.userId != currentUserId;
 
-                return _ListenerRow(
-                  member: m,
-                  isHost: m.userId == hostId,
-                  selfMuted: selfMuted,
-                  hostMuted: hostMuted,
-                  onTap:
-                      canManage ? () => _manage(context, m, hostMuted) : null,
-                );
-              },
-            ),
-                ),
-              ],
-            );
-          },
-        ),
+                              return _ListenerRow(
+                                member: m,
+                                isHost: m.userId == hostId,
+                                selfMuted: selfMuted,
+                                hostMuted: hostMuted,
+                                onTap: canManage
+                                    ? () => _manage(context, m, hostMuted)
+                                    : null,
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -98,8 +102,7 @@ class _DrawerHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.people_alt_rounded,
-              color: AppColors.cyan, size: 20),
+          const Icon(Icons.people_alt_rounded, color: AppColors.cyan, size: 20),
           const SizedBox(width: 10),
           Text(
             'In this room',
@@ -240,8 +243,8 @@ class _ListenerRow extends StatelessWidget {
                 children: [
                   Text(
                     member.name,
-                    style: AppTextStyles.bodyMedium
-                        .copyWith(color: Colors.white),
+                    style:
+                        AppTextStyles.bodyMedium.copyWith(color: Colors.white),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
