@@ -90,11 +90,20 @@ class _Bubble extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         gradient: isMe ? AppColors.primaryGradient : null,
-        color: isMe ? null : AppColors.cardBg2,
+        color: isMe ? null : AppColors.roomGlass,
         borderRadius: radius,
         border: isMe
             ? null
-            : Border.all(color: AppColors.fieldBorder.withValues(alpha: 0.6)),
+            : Border.all(color: AppColors.roomGlassBorder),
+        boxShadow: isMe
+            ? [
+                BoxShadow(
+                  color: AppColors.purple.withValues(alpha: 0.35),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
       ),
       // Name and text share one paragraph, so a short message wraps tight to
       // the name instead of stacking on its own line.
@@ -105,7 +114,7 @@ class _Bubble extends StatelessWidget {
               TextSpan(
                 text: '${message.name}: ',
                 style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.cyanDark,
+                  color: AppColors.cyan,
                   fontWeight: FontWeight.w700,
                   height: 1.35,
                 ),
@@ -113,7 +122,7 @@ class _Bubble extends StatelessWidget {
             TextSpan(
               text: message.text,
               style: AppTextStyles.bodySmall.copyWith(
-                color: isMe ? AppColors.white : AppColors.slate,
+                color: isMe ? AppColors.white : Colors.white,
                 height: 1.35,
               ),
             ),

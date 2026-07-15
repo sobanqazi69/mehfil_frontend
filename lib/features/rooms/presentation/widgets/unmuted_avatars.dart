@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme/app_colors.dart';
+import '../../../../config/theme/app_text_styles.dart';
 import '../../data/models/room_member_model.dart';
 import '../cubits/room_cubit.dart';
 import '../cubits/room_state.dart';
@@ -25,7 +26,23 @@ class UnmutedAvatars extends StatelessWidget {
                 !(state.hostMutedMap[m.userId] ?? m.mutedByHost))
             .toList();
 
-        if (unmuted.isEmpty) return const SizedBox.shrink();
+        if (unmuted.isEmpty) {
+          // Nobody on mic yet — a quiet hint keeps the header from looking empty.
+          return Row(
+            children: [
+              Icon(Icons.mic_off_rounded,
+                  size: 15, color: Colors.white.withValues(alpha: 0.3)),
+              const SizedBox(width: 6),
+              Text(
+                'No one on mic',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          );
+        }
 
         // Only the speaking rings listen to the level notifier, so the firehose
         // of audio updates never rebuilds the row itself.
@@ -55,14 +72,15 @@ class ValueListenableBinder extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 38,
-      child: Center(
+      child: Align(
+        alignment: Alignment.centerLeft,
         child: ValueListenableBuilder<Map<String, double>>(
           valueListenable: notifier,
           builder: (_, levels, __) {
             return ListView.separated(
               scrollDirection: Axis.horizontal,
               shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 2),
               itemCount: unmuted.length,
               separatorBuilder: (_, __) => const SizedBox(width: 6),
               itemBuilder: (_, i) {

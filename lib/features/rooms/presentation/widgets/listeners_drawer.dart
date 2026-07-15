@@ -21,13 +21,16 @@ class ListenersDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: AppColors.cardBg,
-      child: SafeArea(
+      backgroundColor: AppColors.roomBgTop,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(gradient: AppColors.roomGradient),
+        child: SafeArea(
         child: BlocBuilder<RoomCubit, RoomState>(
           buildWhen: (prev, curr) => curr is RoomLoaded,
           builder: (context, state) {
             if (state is! RoomLoaded) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(
+                  child: CircularProgressIndicator(color: AppColors.cyan));
             }
 
             final hostId = state.room.hostId;
@@ -38,15 +41,20 @@ class ListenersDrawer extends StatelessWidget {
               ...state.members.where((m) => m.userId != hostId),
             ];
 
-            if (members.isEmpty) return const _EmptyListeners();
-
             final authState = context.watch<AuthCubit>().state;
             final currentUserId =
                 authState is AuthAuthenticated ? authState.user.id : 0;
             final amHost = currentUserId == hostId;
 
-            return ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DrawerHeader(count: members.length),
+                Expanded(
+                  child: members.isEmpty
+                      ? const _EmptyListeners()
+                      : ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: members.length,
               itemBuilder: (_, i) {
                 final m = members[i];
@@ -65,9 +73,58 @@ class ListenersDrawer extends StatelessWidget {
                       canManage ? () => _manage(context, m, hostMuted) : null,
                 );
               },
+            ),
+                ),
+              ],
             );
           },
         ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerHeader extends StatelessWidget {
+  final int count;
+  const _DrawerHeader({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.roomGlassBorder)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.people_alt_rounded,
+              color: AppColors.cyan, size: 20),
+          const SizedBox(width: 10),
+          Text(
+            'In this room',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.roomGlass,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.roomGlassBorder),
+            ),
+            child: Text(
+              '$count',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -143,7 +200,8 @@ class _EmptyListeners extends StatelessWidget {
         child: Text(
           'Nobody else is here yet.',
           textAlign: TextAlign.center,
-          style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey),
+          style: AppTextStyles.bodySmall
+              .copyWith(color: Colors.white.withValues(alpha: 0.5)),
         ),
       ),
     );
@@ -183,7 +241,7 @@ class _ListenerRow extends StatelessWidget {
                   Text(
                     member.name,
                     style: AppTextStyles.bodyMedium
-                        .copyWith(color: AppColors.slate),
+                        .copyWith(color: Colors.white),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -202,7 +260,7 @@ class _ListenerRow extends StatelessWidget {
                 ],
               ),
             ),
-            // Host-mute is red and locked; a plain self-mute is just grey.
+            // Host-mute is red and locked; a plain self-mute reads dim.
             Icon(
               hostMuted
                   ? Icons.mic_off_rounded
@@ -210,13 +268,15 @@ class _ListenerRow extends StatelessWidget {
               size: 18,
               color: hostMuted
                   ? AppColors.error
-                  : (selfMuted ? AppColors.greyLight : AppColors.success),
+                  : (selfMuted
+                      ? Colors.white.withValues(alpha: 0.35)
+                      : AppColors.success),
             ),
-            // if (onTap != null) ...[
-            //   const SizedBox(width: 8),
-            //   const Icon(Icons.more_vert_rounded,
-            //       size: 18, color: AppColors.greyLight),
-            // ],
+            if (onTap != null) ...[
+              const SizedBox(width: 8),
+              Icon(Icons.more_vert_rounded,
+                  size: 18, color: Colors.white.withValues(alpha: 0.4)),
+            ],
           ],
         ),
       ),

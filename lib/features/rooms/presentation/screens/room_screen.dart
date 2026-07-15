@@ -180,9 +180,13 @@ class _RoomScreenState extends State<RoomScreen> {
           child: GestureDetector(
             onTap: () => FocusScope.of(context).unfocus(),
             child: Scaffold(
-              backgroundColor: AppColors.lightBg,
+              backgroundColor: AppColors.roomBgTop,
               endDrawer: const ListenersDrawer(),
-              body: Column(
+              body: Container(
+                decoration: const BoxDecoration(
+                  gradient: AppColors.roomGradient,
+                ),
+                child: Column(
                 children: [
                   // 1. Optimized Header
                   BlocSelector<RoomCubit, RoomState, _HeaderData>(
@@ -268,6 +272,7 @@ class _RoomScreenState extends State<RoomScreen> {
                 ),
               ],
               ),
+              ),
             ),
           ),
         );
@@ -299,49 +304,39 @@ class _RoomHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
     return Container(
-      padding: EdgeInsets.fromLTRB(4, top + 4, 4, 8),
+      padding: EdgeInsets.fromLTRB(10, top + 8, 10, 10),
       decoration: BoxDecoration(
-        gradient: AppColors.glassGradient,
-        border: const Border(
-          bottom: BorderSide(color: AppColors.fieldBorder, width: 1.5),
+        // Subtle top glow fading into the room gradient.
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.cyan.withValues(alpha: 0.10),
+            Colors.transparent,
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.cyan.withValues(alpha: 0.08),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border(
+          bottom: BorderSide(color: AppColors.roomGlassBorder),
+        ),
       ),
       child: Row(
         children: [
-          GestureDetector(
+          _HeaderAction(
+            icon: Icons.close_rounded,
+            color: AppColors.error,
+            filled: true,
             onTap: onLeave,
-            child: Container(
-              width: 38,
-              height: 38,
-              margin: const EdgeInsets.only(left: 8, right: 4),
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-                border:
-                    Border.all(color: AppColors.error.withValues(alpha: 0.35)),
-              ),
-              child: const Icon(
-                Icons.close_rounded,
-                color: AppColors.error,
-                size: 20,
-              ),
-            ),
           ),
-          // Host-only: privacy + room-wide mic.
+          const SizedBox(width: 8),
+          // Speaking / unmuted users live where the title used to be.
+          const Expanded(child: UnmutedAvatars()),
+          const SizedBox(width: 8),
           if (onOpenSettings != null)
             _HeaderAction(
               icon: Icons.tune_rounded,
-              color: AppColors.grey,
+              color: Colors.white,
               onTap: onOpenSettings!,
             ),
-          const Expanded(child: UnmutedAvatars()),
           if (isHost && onToggleQueue != null)
             _HeaderAction(
               icon: Icons.playlist_add_rounded,
@@ -350,10 +345,9 @@ class _RoomHeader extends StatelessWidget {
             ),
           _HeaderAction(
             icon: Icons.people_alt_rounded,
-            color: AppColors.grey,
+            color: Colors.white,
             onTap: onOpenListeners,
           ),
-          const SizedBox(width: 4),
         ],
       ),
     );
@@ -363,11 +357,13 @@ class _RoomHeader extends StatelessWidget {
 class _HeaderAction extends StatelessWidget {
   final IconData icon;
   final Color color;
+  final bool filled;
   final VoidCallback onTap;
 
   const _HeaderAction({
     required this.icon,
     required this.color,
+    this.filled = false,
     required this.onTap,
   });
 
@@ -376,13 +372,19 @@ class _HeaderAction extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 36,
-        height: 36,
-        margin: const EdgeInsets.symmetric(horizontal: 4),
+        width: 38,
+        height: 38,
+        margin: const EdgeInsets.symmetric(horizontal: 3),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
+          color: filled
+              ? color.withValues(alpha: 0.18)
+              : AppColors.roomGlass,
           shape: BoxShape.circle,
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          border: Border.all(
+            color: filled
+                ? color.withValues(alpha: 0.4)
+                : AppColors.roomGlassBorder,
+          ),
         ),
         child: Icon(icon, color: color, size: 18),
       ),
@@ -412,18 +414,8 @@ class _ChatBar extends StatelessWidget {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Container(
       padding: EdgeInsets.fromLTRB(12, 10, 12, 10 + (bottom > 0 ? bottom : 10)),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: const Border(
-          top: BorderSide(color: AppColors.fieldBorder),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 15,
-            offset: const Offset(0, -4),
-          ),
-        ],
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.roomGlassBorder)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -437,20 +429,31 @@ class _ChatBar extends StatelessWidget {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: AppColors.lightBg,
+                // Solid dark pill so white text is always legible, whatever the
+                // gradient is doing behind it.
+                color: const Color(0xFF241A48),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.fieldBorder),
+                border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.14)),
               ),
               child: TextField(
                 controller: ctrl,
-                style: AppTextStyles.bodySmall,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                cursorColor: AppColors.cyan,
                 decoration: InputDecoration(
-                  hintText: 'Say something...',
-                  hintStyle: AppTextStyles.bodySmall
-                      .copyWith(color: AppColors.grey.withValues(alpha: 0.5)),
+                  hintText: 'Say something…',
+                  hintStyle: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.45),
+                      fontSize: 14),
+                  // The global theme fills inputs solid white — opt out so the
+                  // dark pill shows and the white text is legible.
+                  filled: false,
+                  fillColor: Colors.transparent,
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                   contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
                 onSubmitted: (_) => onSend(),
               ),
@@ -462,9 +465,16 @@ class _ChatBar extends StatelessWidget {
             child: Container(
               width: 44,
               height: 44,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: AppColors.primaryGradient,
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.purple.withValues(alpha: 0.5),
+                    blurRadius: 12,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child:
                   const Icon(Icons.send_rounded, color: Colors.white, size: 18),
@@ -503,11 +513,12 @@ class _EmptyChat extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Text('No messages yet', style: AppTextStyles.bodyMedium),
+          Text('No messages yet',
+              style: AppTextStyles.bodyMedium.copyWith(color: Colors.white)),
           const SizedBox(height: 4),
           Text('Start the conversation!',
               style: AppTextStyles.bodySmall
-                  .copyWith(color: AppColors.grey.withValues(alpha: 0.6))),
+                  .copyWith(color: Colors.white.withValues(alpha: 0.5))),
         ],
       ),
     );
@@ -521,25 +532,21 @@ class _LoadingScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.lightBg,
-      appBar: AppBar(
-        backgroundColor: AppColors.lightBg,
-        elevation: 0,
-        leading: IconButton(
-          icon:
-              const Icon(Icons.arrow_back_ios_rounded, color: AppColors.white),
-          onPressed: onBack,
-        ),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(
-                color: AppColors.cyan, strokeWidth: 2.5),
-            const SizedBox(height: 16),
-            Text('Joining room...', style: AppTextStyles.bodySmall),
-          ],
+      backgroundColor: AppColors.roomBgTop,
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppColors.roomGradient),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                  color: AppColors.cyan, strokeWidth: 2.5),
+              const SizedBox(height: 16),
+              Text('Joining room…',
+                  style: AppTextStyles.bodySmall
+                      .copyWith(color: Colors.white.withValues(alpha: 0.7))),
+            ],
+          ),
         ),
       ),
     );
@@ -668,51 +675,47 @@ class _ErrorScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.lightBg,
-      appBar: AppBar(
-        backgroundColor: AppColors.lightBg,
-        elevation: 0,
-        leading: IconButton(
-          icon:
-              const Icon(Icons.arrow_back_ios_rounded, color: AppColors.white),
-          onPressed: onBack,
-        ),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.error_outline_rounded,
-                    color: AppColors.error, size: 36),
-              ),
-              const SizedBox(height: 16),
-              Text(message,
-                  style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-              GestureDetector(
-                onTap: onBack,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      backgroundColor: AppColors.roomBgTop,
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppColors.roomGradient),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
                   decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(24),
+                    color: AppColors.error.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
-                  child: Text('Go Back',
-                      style: AppTextStyles.button
-                          .copyWith(color: AppColors.white)),
+                  child: const Icon(Icons.error_outline_rounded,
+                      color: AppColors.error, size: 36),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                Text(message,
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: Colors.white),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 20),
+                GestureDetector(
+                  onTap: onBack,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Text('Go Back',
+                        style: AppTextStyles.button
+                            .copyWith(color: AppColors.white)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -28,6 +28,21 @@ class AppColors {
   static const Color error   = Color(0xFFEF4444);
   static const Color success = Color(0xFF10B981);
 
+  // ── Immersive room (dark "theater" mode) ─────────────────────────────────
+  static const Color roomBgTop    = Color(0xFF0C0820);  // near-black indigo
+  static const Color roomBgMid    = Color(0xFF160F38);  // deep violet
+  static const Color roomBgBottom = Color(0xFF1E1147);  // purple
+  static const Color roomGlass    = Color(0x14FFFFFF);  // 8% white surface
+  static const Color roomGlassBorder = Color(0x1FFFFFFF); // 12% white hairline
+
+  /// Diagonal dark gradient behind the whole room, Rave-style.
+  static const LinearGradient roomGradient = LinearGradient(
+    colors: [roomBgTop, roomBgMid, roomBgBottom],
+    stops: [0.0, 0.55, 1.0],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
   // ── Gradients ─────────────────────────────────────────────────────────────
 
   /// Sky Blue → Indigo — Main cool gradient.
