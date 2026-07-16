@@ -49,6 +49,33 @@ class AuthRepository {
     }
   }
 
+  /// Email+password path used by store reviewers, who cannot reliably get
+  /// through Google's sign-in challenge on a fresh device.
+  Future<UserModel> signInWithEmail(String email, String password) async {
+    try {
+      final res = await _api.post(
+        ApiEndpoints.reviewLogin,
+        data: {'email': email, 'password': password},
+      );
+      final data = MapUtils.asMap(res.data);
+      final accessToken = MapUtils.handleNullableStringKey(data, 'accessToken');
+      final refreshToken =
+          MapUtils.handleNullableStringKey(data, 'refreshToken');
+      if (accessToken == null || refreshToken == null) {
+        throw 'Sign-in failed. Please try again.';
+      }
+      await _storage.saveTokens(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+      );
+      return UserModel.fromJson(
+          MapUtils.handleNullableMapKey(data, 'user') ?? const {});
+    } on DioException catch (e) {
+      DebugLogger.error('signInWithEmail failed', error: e);
+      throw _parseError(e);
+    }
+  }
+
   Future<UserModel> updateProfile({
     String? name,
     String? username,

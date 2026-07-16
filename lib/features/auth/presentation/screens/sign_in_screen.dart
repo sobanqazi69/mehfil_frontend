@@ -4,6 +4,7 @@ import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../cubits/auth_cubit.dart';
+import '../widgets/email_sign_in_sheet.dart';
 import '../cubits/auth_state.dart';
 
 class SignInScreen extends StatelessWidget {
@@ -29,6 +30,8 @@ class SignInScreen extends StatelessWidget {
                     const _LogoSection(),
                     const Spacer(flex: 3),
                     const _GoogleSignInButton(),
+                    const SizedBox(height: 8),
+                    const _EmailSignInLink(),
                     const SizedBox(height: 24),
                     Text(
                       'By signing in you agree to our Terms of Service',
@@ -178,6 +181,29 @@ class _LogoSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Secondary, low-emphasis path. Google stays the one primary CTA.
+class _EmailSignInLink extends StatelessWidget {
+  const _EmailSignInLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: () => showEmailSignInSheet(context),
+      style: TextButton.styleFrom(
+        minimumSize: const Size(0, 44),
+        foregroundColor: AppColors.grey,
+      ),
+      child: Text(
+        'Sign in with email',
+        style: AppTextStyles.bodySmall.copyWith(
+          color: AppColors.grey,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

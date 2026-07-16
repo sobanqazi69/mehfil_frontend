@@ -11,6 +11,7 @@ class ApiEndpoints {
 
   // Auth
   static const String googleAuth  = '$_base/auth/google';
+  static const String reviewLogin = '$_base/auth/review-login';
   static const String refreshToken = '$_base/auth/refresh';
 
   // Users

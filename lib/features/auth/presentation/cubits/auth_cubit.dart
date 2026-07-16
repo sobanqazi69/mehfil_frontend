@@ -66,6 +66,20 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  Future<void> signInWithEmail(String email, String password) async {
+    try {
+      if (isClosed) return;
+      emit(const AuthLoading());
+      final user = await _repo.signInWithEmail(email, password);
+      if (isClosed) return;
+      await _connectSocket();
+      emit(AuthAuthenticated(user));
+    } catch (e) {
+      DebugLogger.error('signInWithEmail failed', error: e);
+      if (!isClosed) emit(AuthError(e.toString()));
+    }
+  }
+
   Future<void> signOut() async {
     try {
       await _googleSignIn.signOut();
