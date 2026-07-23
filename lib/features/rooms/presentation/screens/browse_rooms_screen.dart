@@ -70,8 +70,8 @@ class _BrowseRoomsScreenState extends State<BrowseRoomsScreen>
       },
       builder: (context, state) {
         return RefreshIndicator(
-          color: AppColors.cyan,
-          backgroundColor: AppColors.cardBg,
+          color: const Color(0xFFFBBF24),
+          backgroundColor: const Color(0xFF130E26),
           onRefresh: () => context.read<RoomListCubit>().refresh(),
           child: CustomScrollView(
             slivers: [
@@ -123,18 +123,18 @@ class _BrowseRoomsScreenState extends State<BrowseRoomsScreen>
           child: Row(
             children: [
               const Icon(Icons.public_rounded,
-                  size: 16, color: AppColors.grey),
+                  size: 16, color: Color(0x99F59E0B)),
               const SizedBox(width: 6),
               Text(
                 'Public rooms',
                 style: AppTextStyles.labelMedium
-                    .copyWith(color: AppColors.grey),
+                    .copyWith(color: const Color(0xFFF59E0B).withValues(alpha: 0.7)),
               ),
               const Spacer(),
               Text(
                 '${rooms.length}',
                 style: AppTextStyles.labelSmall
-                    .copyWith(color: AppColors.greyLight),
+                    .copyWith(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
               ),
             ],
           ),
@@ -167,28 +167,53 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppColors.cyan.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Intricate gold mandala with neon headphones
+            Container(
+              width: 230,
+              height: 230,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00FFB2).withValues(alpha: 0.12),
+                    blurRadius: 40,
+                    spreadRadius: 4,
+                  ),
+                ],
+              ),
+              child: Image.asset(
+                'assets/images/mehfil_mandala_headphones.png',
+                fit: BoxFit.contain,
+              ),
             ),
-            child: Icon(
-              Icons.headphones_outlined,
-              size: 40,
-              color: AppColors.cyan.withValues(alpha: 0.5),
+            const SizedBox(height: 32),
+            const Text(
+              'No rooms yet',
+              style: TextStyle(
+                color: Color(0xFFF59E0B), // Gold color
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text('No rooms yet', style: AppTextStyles.bodyLarge),
-          const SizedBox(height: 6),
-          Text('Be the first to start a watch party!',
-              style: AppTextStyles.bodySmall),
-        ],
+            const SizedBox(height: 10),
+            const Text(
+              'Be the first to start a watch party!',
+              style: TextStyle(
+                color: Color(0xFF00FFB2), // Neon green/cyan
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

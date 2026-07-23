@@ -35,13 +35,13 @@ class _RoomListTileState extends State<RoomListTile> {
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: AppColors.cardBg,
+            color: const Color(0xFF130E26), // Dark tile background
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.fieldBorder),
+            border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.14), width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: AppColors.cyan.withValues(alpha: 0.05),
-                blurRadius: 14,
+                color: const Color(0xFFD97706).withValues(alpha: 0.05),
+                blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
             ],
@@ -58,7 +58,7 @@ class _RoomListTileState extends State<RoomListTile> {
                     Text(
                       room.name.isEmpty ? 'Untitled room' : room.name,
                       style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.slate,
+                        color: const Color(0xFFFBBF24), // Gold title text
                         fontWeight: FontWeight.w600,
                         height: 1.3,
                       ),
@@ -141,16 +141,16 @@ class _ThumbPlaceholder extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFFE0F2FE), Color(0xFFEFF6FF)],
+          colors: [Color(0xFF0C0820), Color(0xFF130E26)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
       ),
-      child: Center(
+      child: const Center(
         child: Icon(
           Icons.headphones_rounded,
           size: 26,
-          color: AppColors.purple.withValues(alpha: 0.45),
+          color: Color(0xFFFBBF24),
         ),
       ),
     );
@@ -217,7 +217,7 @@ class _ListenerRow extends StatelessWidget {
                 ? '1 listening'
                 : '${room.memberCount} listening',
             style: AppTextStyles.labelSmall.copyWith(
-              color: AppColors.grey,
+              color: const Color(0xFFFBBF24).withValues(alpha: 0.5),
               fontSize: 11,
             ),
             overflow: TextOverflow.ellipsis,
@@ -262,15 +262,15 @@ class _AvatarStack extends StatelessWidget {
                 width: _size,
                 height: _size,
                 decoration: BoxDecoration(
-                  color: AppColors.cardBg2,
+                  color: const Color(0xFF1E173C),
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.cardBg, width: 2),
+                  border: Border.all(color: const Color(0xFF130E26), width: 2),
                 ),
                 child: Center(
                   child: Text(
                     others > 9 ? '9+' : '+$others',
                     style: AppTextStyles.labelSmall.copyWith(
-                      color: AppColors.grey,
+                      color: const Color(0xFFFBBF24),
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
                     ),
@@ -295,9 +295,13 @@ class _Avatar extends StatelessWidget {
       width: _AvatarStack._size,
       height: _AvatarStack._size,
       decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFBBF24), Color(0xFFD97706)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.cardBg, width: 2),
+        border: Border.all(color: const Color(0xFF130E26), width: 2),
       ),
       child: ClipOval(
         child: avatarUrl != null
@@ -317,7 +321,7 @@ class _Avatar extends StatelessWidget {
           style: const TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w700,
-            color: Colors.white,
+            color: Colors.black,
           ),
         ),
       );

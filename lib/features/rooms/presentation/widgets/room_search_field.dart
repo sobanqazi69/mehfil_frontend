@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
 
 class RoomSearchField extends StatefulWidget {
@@ -35,32 +34,39 @@ class _RoomSearchFieldState extends State<RoomSearchField> {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: _controller,
-      onChanged: _onChanged,
-      textInputAction: TextInputAction.search,
-      style: AppTextStyles.bodySmall.copyWith(color: AppColors.slate),
-      decoration: InputDecoration(
-        isDense: true,
-        filled: true,
-        fillColor: AppColors.cardBg,
-        hintText: 'Search rooms or hosts',
-        hintStyle:
-            AppTextStyles.bodySmall.copyWith(color: AppColors.greyLight),
-        prefixIcon: const Icon(Icons.search_rounded,
-            color: AppColors.grey, size: 20),
-        suffixIcon: _hasText
-            ? IconButton(
-                onPressed: _clear,
-                icon: const Icon(Icons.close_rounded,
-                    color: AppColors.grey, size: 18),
-                tooltip: 'Clear search',
-              )
-            : null,
-        contentPadding: const EdgeInsets.symmetric(vertical: 14),
-        border: _border(AppColors.fieldBorder),
-        enabledBorder: _border(AppColors.fieldBorder),
-        focusedBorder: _border(AppColors.cyan, width: 1.5),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFF130E26), // Force dark background
+          border: _border(const Color(0x33F59E0B)),
+          enabledBorder: _border(const Color(0x33F59E0B)),
+          focusedBorder: _border(const Color(0xFFFBBF24), width: 1.5),
+          contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          prefixIconColor: const Color(0xFFF59E0B),
+          suffixIconColor: const Color(0xFFF59E0B),
+        ),
+      ),
+      child: TextField(
+        controller: _controller,
+        onChanged: _onChanged,
+        textInputAction: TextInputAction.search,
+        style: AppTextStyles.bodySmall.copyWith(color: const Color(0xFFFBBF24)),
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: 'Search rooms or hosts',
+          hintStyle: AppTextStyles.bodySmall.copyWith(
+            color: const Color(0xFFFBBF24).withValues(alpha: 0.45),
+          ),
+          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+          suffixIcon: _hasText
+              ? IconButton(
+                  onPressed: _clear,
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  tooltip: 'Clear search',
+                )
+              : null,
+        ),
       ),
     );
   }

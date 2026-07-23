@@ -75,14 +75,7 @@ class _RoomScreenState extends State<RoomScreen> {
       if (!mounted) return;
       final res = await showDialog<bool>(
         context: context,
-        builder: (c) => AlertDialog(
-          title: const Text('Leave Room?'),
-          content: const Text('Do you want to leave this session?'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Stay')),
-            TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Leave')),
-          ],
-        ),
+        builder: (c) => const _LeaveConfirmDialog(),
       );
       _leaveDialogOpen = false;
       if (res == true) _leave();
@@ -187,91 +180,95 @@ class _RoomScreenState extends State<RoomScreen> {
                   gradient: AppColors.roomGradient,
                 ),
                 child: Column(
-                children: [
-                  // 1. Optimized Header
-                  BlocSelector<RoomCubit, RoomState, _HeaderData>(
-                    selector: (s) => (s is RoomLoaded)
-                        ? _HeaderData(s.room, s.room.hostId == currentUserId)
-                        : _HeaderData.empty(),
-                    builder: (context, data) {
-                      return _RoomHeader(
-                        room: data.room,
-                        onLeave: _confirmLeave,
-                        isHost: data.isHost,
-                        onOpenListeners: () =>
-                            Scaffold.of(context).openEndDrawer(),
-                        onOpenSettings: data.isHost
-                            ? () => showRoomSettingsSheet(context)
-                            : null,
-                        onToggleQueue: data.isHost ? _openYoutubePicker : null,
-                      );
-                    },
-                  ),
+                  children: [
+                    // 1. Optimized Header
+                    BlocSelector<RoomCubit, RoomState, _HeaderData>(
+                      selector: (s) => (s is RoomLoaded)
+                          ? _HeaderData(s.room, s.room.hostId == currentUserId)
+                          : _HeaderData.empty(),
+                      builder: (context, data) {
+                        return _RoomHeader(
+                          room: data.room,
+                          onLeave: _confirmLeave,
+                          isHost: data.isHost,
+                          onOpenListeners: () =>
+                              Scaffold.of(context).openEndDrawer(),
+                          onOpenSettings: data.isHost
+                              ? () => showRoomSettingsSheet(context)
+                              : null,
+                          onToggleQueue:
+                              data.isHost ? _openYoutubePicker : null,
+                        );
+                      },
+                    ),
 
-                // 2. Optimized Video Player
-                BlocSelector<RoomCubit, RoomState, _VideoData>(
-                  selector: (s) => (s is RoomLoaded)
-                      ? _VideoData(s.room, s.room.hostId == currentUserId)
-                      : _VideoData.empty(),
-                  builder: (context, data) {
-                    return RoomVideoPlayer(
-                      youtubeId: data.room.youtubeId,
-                      nextYoutubeId: data.room.nextYoutubeId,
-                      isPlaying: data.room.isPlaying,
-                      timestampSec: data.room.timestampSec,
-                      isHost: data.isHost,
-                      onLoad: (id) => context.read<RoomCubit>().loadVideo(id),
-                      onQueue: (id) => context.read<RoomCubit>().queueVideo(id),
-                      onSync: (ts, playing) =>
-                          context.read<RoomCubit>().syncVideo(ts, playing),
-                    );
-                  },
-                ),
+                    // 2. Optimized Video Player
+                    BlocSelector<RoomCubit, RoomState, _VideoData>(
+                      selector: (s) => (s is RoomLoaded)
+                          ? _VideoData(s.room, s.room.hostId == currentUserId)
+                          : _VideoData.empty(),
+                      builder: (context, data) {
+                        return RoomVideoPlayer(
+                          youtubeId: data.room.youtubeId,
+                          nextYoutubeId: data.room.nextYoutubeId,
+                          isPlaying: data.room.isPlaying,
+                          timestampSec: data.room.timestampSec,
+                          isHost: data.isHost,
+                          onLoad: (id) =>
+                              context.read<RoomCubit>().loadVideo(id),
+                          onQueue: (id) =>
+                              context.read<RoomCubit>().queueVideo(id),
+                          onSync: (ts, playing) =>
+                              context.read<RoomCubit>().syncVideo(ts, playing),
+                        );
+                      },
+                    ),
 
-                // 3. Optimized Chat List
-                Expanded(
-                  child: BlocSelector<RoomCubit, RoomState, _ChatData>(
-                    selector: (s) => (s is RoomLoaded)
-                        ? _ChatData(s.messages, s.room.hostId)
-                        : const _ChatData([], 0),
-                    builder: (context, data) {
-                      final messages = data.messages;
-                      if (messages.isEmpty) return const _EmptyChat();
-                      return ListView.builder(
-                        controller: _scrollCtrl,
-                        padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
-                        itemCount: messages.length,
-                        itemBuilder: (_, i) => ChatBubble(
-                          message: messages[i],
-                          isMe: messages[i].userId == currentUserId,
-                          isHost: messages[i].userId == data.hostId,
-                          // Hide avatar/name on a run from the same sender.
-                          showSender: i == 0 ||
-                              messages[i - 1].userId != messages[i].userId,
-                        ),
-                      );
-                    },
-                  ),
-                ),
+                    // 3. Optimized Chat List
+                    Expanded(
+                      child: BlocSelector<RoomCubit, RoomState, _ChatData>(
+                        selector: (s) => (s is RoomLoaded)
+                            ? _ChatData(s.messages, s.room.hostId)
+                            : const _ChatData([], 0),
+                        builder: (context, data) {
+                          final messages = data.messages;
+                          if (messages.isEmpty) return const _EmptyChat();
+                          return ListView.builder(
+                            controller: _scrollCtrl,
+                            padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
+                            itemCount: messages.length,
+                            itemBuilder: (_, i) => ChatBubble(
+                              message: messages[i],
+                              isMe: messages[i].userId == currentUserId,
+                              isHost: messages[i].userId == data.hostId,
+                              // Hide avatar/name on a run from the same sender.
+                              showSender: i == 0 ||
+                                  messages[i - 1].userId != messages[i].userId,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
 
-                // 5. Optimized Chat Bar
-                BlocSelector<RoomCubit, RoomState, _MicData>(
-                  selector: (s) => (s is RoomLoaded)
-                      ? _MicData(s.isMicMuted, s.isHostMuted)
-                      : const _MicData(true, false),
-                  builder: (context, mic) {
-                    return _ChatBar(
-                      ctrl: _chatCtrl,
-                      isMicMuted: mic.isMicMuted,
-                      isHostMuted: mic.isHostMuted,
-                      onSend: _sendMessage,
-                      onMicToggle: () =>
-                          context.read<RoomCubit>().toggleMic(currentUserId),
-                    );
-                  },
+                    // 5. Optimized Chat Bar
+                    BlocSelector<RoomCubit, RoomState, _MicData>(
+                      selector: (s) => (s is RoomLoaded)
+                          ? _MicData(s.isMicMuted, s.isHostMuted)
+                          : const _MicData(true, false),
+                      builder: (context, mic) {
+                        return _ChatBar(
+                          ctrl: _chatCtrl,
+                          isMicMuted: mic.isMicMuted,
+                          isHostMuted: mic.isHostMuted,
+                          onSend: _sendMessage,
+                          onMicToggle: () => context
+                              .read<RoomCubit>()
+                              .toggleMic(currentUserId),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-              ],
-              ),
               ),
             ),
           ),
@@ -376,9 +373,7 @@ class _HeaderAction extends StatelessWidget {
         height: 38,
         margin: const EdgeInsets.symmetric(horizontal: 3),
         decoration: BoxDecoration(
-          color: filled
-              ? color.withValues(alpha: 0.18)
-              : AppColors.roomGlass,
+          color: filled ? color.withValues(alpha: 0.18) : AppColors.roomGlass,
           shape: BoxShape.circle,
           border: Border.all(
             color: filled
@@ -433,8 +428,7 @@ class _ChatBar extends StatelessWidget {
                 // gradient is doing behind it.
                 color: const Color(0xFF241A48),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.14)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
               ),
               child: TextField(
                 controller: ctrl,
@@ -696,8 +690,8 @@ class _ErrorScaffold extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(message,
-                    style: AppTextStyles.bodyMedium
-                        .copyWith(color: Colors.white),
+                    style:
+                        AppTextStyles.bodyMedium.copyWith(color: Colors.white),
                     textAlign: TextAlign.center),
                 const SizedBox(height: 20),
                 GestureDetector(
@@ -763,7 +757,8 @@ class _HeaderData {
   final bool isHost;
   _HeaderData(this.room, this.isHost);
   static _HeaderData empty() => _HeaderData(
-      RoomModel(id: 0, name: '', hostId: 0, creatorId: 0, youtubeId: ''), false);
+      RoomModel(id: 0, name: '', hostId: 0, creatorId: 0, youtubeId: ''),
+      false);
 
   @override
   bool operator ==(Object other) =>
@@ -783,7 +778,8 @@ class _VideoData {
   final bool isHost;
   _VideoData(this.room, this.isHost);
   static _VideoData empty() => _VideoData(
-      RoomModel(id: 0, name: '', hostId: 0, creatorId: 0, youtubeId: ''), false);
+      RoomModel(id: 0, name: '', hostId: 0, creatorId: 0, youtubeId: ''),
+      false);
 
   @override
   bool operator ==(Object other) =>
@@ -801,4 +797,3 @@ class _VideoData {
       room.timestampSec.hashCode ^
       isHost.hashCode;
 }
-
