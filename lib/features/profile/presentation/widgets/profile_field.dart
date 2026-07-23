@@ -47,7 +47,7 @@ class ProfileField extends StatelessWidget {
           child: Text(
             label,
             style: AppTextStyles.labelMedium.copyWith(
-              color: AppColors.slate,
+              color: const Color(0xFFFBBF24), // Gold label
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -61,28 +61,28 @@ class ProfileField extends StatelessWidget {
           // Multi-line fields grow downward, so keep the icon at the top.
           textAlignVertical:
               maxLines > 1 ? TextAlignVertical.top : TextAlignVertical.center,
-          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.slate),
+          style: AppTextStyles.bodyMedium.copyWith(color: Colors.white), // White text input
           decoration: InputDecoration(
             counterText: '',
             alignLabelWithHint: maxLines > 1,
             filled: true,
-            fillColor: AppColors.cardBg,
+            fillColor: const Color(0xFF130E26), // Dark input background
             hintText: hint,
             hintStyle:
-                AppTextStyles.bodyMedium.copyWith(color: AppColors.greyLight),
+                AppTextStyles.bodyMedium.copyWith(color: const Color(0xFFFBBF24).withValues(alpha: 0.45)),
             prefixIcon: maxLines > 1
                 ? Padding(
                     padding: const EdgeInsets.only(bottom: 34),
                     child: Icon(
                       icon,
                       size: 20,
-                      color: hasError ? AppColors.error : AppColors.grey,
+                      color: hasError ? AppColors.error : const Color(0xFFFBBF24),
                     ),
                   )
                 : Icon(
                     icon,
                     size: 20,
-                    color: hasError ? AppColors.error : AppColors.grey,
+                    color: hasError ? AppColors.error : const Color(0xFFFBBF24),
                   ),
             prefixText: prefixText,
             prefixStyle:
@@ -97,12 +97,12 @@ class ProfileField extends StatelessWidget {
                 const BoxConstraints(minWidth: 24, minHeight: 24),
             // 56px tall: comfortably above the 44pt touch minimum.
             contentPadding: const EdgeInsets.symmetric(vertical: 18),
-            border: _border(AppColors.fieldBorder),
+            border: _border(const Color(0x33F59E0B)),
             enabledBorder: _border(
-              hasError ? AppColors.error.withValues(alpha: 0.6) : AppColors.fieldBorder,
+              hasError ? AppColors.error.withValues(alpha: 0.6) : const Color(0x33F59E0B),
             ),
             focusedBorder: _border(
-              hasError ? AppColors.error : AppColors.cyan,
+              hasError ? AppColors.error : const Color(0xFFFBBF24),
               width: 1.6,
             ),
           ),
@@ -126,7 +126,7 @@ class ProfileField extends StatelessWidget {
                           errorText ?? helperText!,
                           style: AppTextStyles.labelSmall.copyWith(
                             color:
-                                hasError ? AppColors.error : AppColors.greyLight,
+                                hasError ? AppColors.error : const Color(0x73FBBF24),
                             fontSize: 11,
                           ),
                           maxLines: 1,

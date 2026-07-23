@@ -166,43 +166,23 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return const Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        padding: EdgeInsets.symmetric(horizontal: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Intricate gold mandala with neon headphones
-            Container(
-              width: 230,
-              height: 230,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF00FFB2).withValues(alpha: 0.12),
-                    blurRadius: 40,
-                    spreadRadius: 4,
-                  ),
-                ],
-              ),
-              child: Image.asset(
-                'assets/images/mehfil_mandala_headphones.png',
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(height: 32),
-            const Text(
+            Text(
               'No rooms yet',
               style: TextStyle(
-                color: Color(0xFFF59E0B), // Gold color
+                color: Color(0xFFFBBF24), // Gold color
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.5,
               ),
             ),
-            const SizedBox(height: 10),
-            const Text(
+            SizedBox(height: 10),
+            Text(
               'Be the first to start a watch party!',
               style: TextStyle(
                 color: Color(0xFF00FFB2), // Neon green/cyan

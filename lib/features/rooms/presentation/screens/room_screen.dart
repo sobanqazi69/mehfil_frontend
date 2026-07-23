@@ -176,8 +176,17 @@ class _RoomScreenState extends State<RoomScreen> {
               backgroundColor: AppColors.roomBgTop,
               endDrawer: const ListenersDrawer(),
               body: Container(
-                decoration: const BoxDecoration(
-                  gradient: AppColors.roomGradient,
+                decoration: BoxDecoration(
+                  color: AppColors.roomBgTop,
+                  image: DecorationImage(
+                    image: const AssetImage('assets/images/mehfil_background.jpg'),
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    colorFilter: ColorFilter.mode(
+                      AppColors.roomBgTop.withValues(alpha: 0.90), // 90% dark overlay
+                      BlendMode.srcOver,
+                    ),
+                  ),
                 ),
                 child: Column(
                   children: [
@@ -302,18 +311,17 @@ class _RoomHeader extends StatelessWidget {
     final top = MediaQuery.of(context).padding.top;
     return Container(
       padding: EdgeInsets.fromLTRB(10, top + 8, 10, 10),
-      decoration: BoxDecoration(
-        // Subtle top glow fading into the room gradient.
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            AppColors.cyan.withValues(alpha: 0.10),
+            Color(0x14FBBF24), // 8% gold glow
             Colors.transparent,
           ],
         ),
         border: Border(
-          bottom: BorderSide(color: AppColors.roomGlassBorder),
+          bottom: BorderSide(color: Color(0x1AFBBF24)), // 10% gold border
         ),
       ),
       child: Row(
@@ -331,18 +339,18 @@ class _RoomHeader extends StatelessWidget {
           if (onOpenSettings != null)
             _HeaderAction(
               icon: Icons.tune_rounded,
-              color: Colors.white,
+              color: const Color(0xFFFBBF24),
               onTap: onOpenSettings!,
             ),
           if (isHost && onToggleQueue != null)
             _HeaderAction(
               icon: Icons.playlist_add_rounded,
-              color: AppColors.cyan,
+              color: const Color(0xFF00FFB2),
               onTap: onToggleQueue!,
             ),
           _HeaderAction(
             icon: Icons.people_alt_rounded,
-            color: Colors.white,
+            color: const Color(0xFFFBBF24),
             onTap: onOpenListeners,
           ),
         ],
@@ -410,7 +418,7 @@ class _ChatBar extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(12, 10, 12, 10 + (bottom > 0 ? bottom : 10)),
       decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.roomGlassBorder)),
+        border: Border(top: BorderSide(color: Color(0x1AFBBF24))), // gold border top
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -424,23 +432,19 @@ class _ChatBar extends StatelessWidget {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                // Solid dark pill so white text is always legible, whatever the
-                // gradient is doing behind it.
-                color: const Color(0xFF241A48),
+                color: const Color(0xFF130E26), // Dark input background
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                border: Border.all(color: const Color(0x22FBBF24)), // gold/glass border
               ),
               child: TextField(
                 controller: ctrl,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
-                cursorColor: AppColors.cyan,
+                cursorColor: const Color(0xFFFBBF24), // gold cursor
                 decoration: InputDecoration(
                   hintText: 'Say something…',
                   hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
+                      color: const Color(0xFFFBBF24).withValues(alpha: 0.45),
                       fontSize: 14),
-                  // The global theme fills inputs solid white — opt out so the
-                  // dark pill shows and the white text is legible.
                   filled: false,
                   fillColor: Colors.transparent,
                   border: InputBorder.none,
@@ -460,18 +464,22 @@ class _ChatBar extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFBBF24), Color(0xFFD97706)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.purple.withValues(alpha: 0.5),
+                    color: const Color(0xFFD97706).withValues(alpha: 0.4),
                     blurRadius: 12,
                     offset: const Offset(0, 3),
                   ),
                 ],
               ),
               child:
-                  const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                  const Icon(Icons.send_rounded, color: Colors.black, size: 18), // black icon on gold button
             ),
           ),
         ],

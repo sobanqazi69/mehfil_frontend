@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import '../../../../config/theme/app_colors.dart';
 
 /// Tappable avatar with a camera badge. Shows a spinner over the image while
 /// the new photo uploads, so the tap never feels like it did nothing.
@@ -37,10 +36,14 @@ class ProfileAvatarEditor extends StatelessWidget {
                 height: _size,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: AppColors.primaryGradient,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFBBF24), Color(0xFFD97706)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.cyan.withValues(alpha: 0.25),
+                      color: const Color(0xFFD97706).withValues(alpha: 0.3),
                       blurRadius: 24,
                       offset: const Offset(0, 10),
                     ),
@@ -85,9 +88,9 @@ class ProfileAvatarEditor extends StatelessWidget {
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: AppColors.cardBg,
+                    color: const Color(0xFF130E26), // Dark background
                     shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.fieldBorder, width: 2),
+                    border: Border.all(color: const Color(0xFFFBBF24), width: 2), // Gold border
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.1),
@@ -99,7 +102,7 @@ class ProfileAvatarEditor extends StatelessWidget {
                   child: const Icon(
                     Icons.photo_camera_rounded,
                     size: 16,
-                    color: AppColors.cyanDark,
+                    color: Color(0xFFFBBF24), // Gold icon
                   ),
                 ),
               ),
@@ -111,14 +114,14 @@ class ProfileAvatarEditor extends StatelessWidget {
   }
 
   Widget _initial() => Container(
-        color: AppColors.cardBg2,
+        color: const Color(0xFF1E173C),
         child: Center(
           child: Text(
             name.isNotEmpty ? name[0].toUpperCase() : '?',
             style: const TextStyle(
               fontSize: 40,
               fontWeight: FontWeight.w700,
-              color: AppColors.grey,
+              color: Color(0xFFFBBF24),
             ),
           ),
         ),

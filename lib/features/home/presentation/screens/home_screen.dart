@@ -23,18 +23,28 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.roomBgTop,
+      extendBodyBehindAppBar: true, // Let background flow behind AppBar
       appBar: const _AppBar(),
       endDrawer: const ProfileDrawer(),
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
+          color: AppColors.roomBgTop,
           image: DecorationImage(
-            image: AssetImage('assets/images/mehfil_background.jpg'),
+            image: const AssetImage('assets/images/mehfil_background.jpg'),
             fit: BoxFit.cover,
+            alignment: Alignment.center,
+            colorFilter: ColorFilter.mode(
+              AppColors.roomBgTop.withValues(alpha: 0.50), // 90% dark overlay
+              BlendMode.srcOver,
+            ),
           ),
         ),
-        child: BrowseRoomsScreen(onRoomTap: onRoomTap),
+        child: SafeArea(
+          bottom: false,
+          child: BrowseRoomsScreen(onRoomTap: onRoomTap),
+        ),
       ),
       floatingActionButton: const _CreateRoomFab(),
     );
@@ -49,6 +59,7 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
+      scrolledUnderElevation: 0, // Keep transparent on scroll
       titleSpacing: 20,
       title: Row(
         children: [
@@ -92,9 +103,8 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         BlocBuilder<AuthCubit, AuthState>(
           builder: (context, state) {
-            final avatar = state is AuthAuthenticated
-                ? state.user.avatar
-                : null;
+            final avatar =
+                state is AuthAuthenticated ? state.user.avatar : null;
             return GestureDetector(
               onTap: () => Scaffold.of(context).openEndDrawer(),
               child: Padding(
@@ -148,8 +158,7 @@ class _AvatarWidget extends StatelessWidget {
                   size: 20,
                 ),
               )
-            : const Icon(Icons.person_rounded,
-                color: Colors.black, size: 20),
+            : const Icon(Icons.person_rounded, color: Colors.black, size: 20),
       ),
     );
   }

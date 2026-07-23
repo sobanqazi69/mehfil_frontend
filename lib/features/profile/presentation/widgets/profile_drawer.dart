@@ -189,20 +189,30 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
   Future<void> _confirmSignOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('Sign out?'),
-        content: const Text('You will need to sign in again to join rooms.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('Cancel'),
+      builder: (c) => Theme(
+        data: ThemeData.dark().copyWith(
+          dialogTheme: DialogThemeData(
+            backgroundColor: const Color(0xFF130E26),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: const Color(0xFFFBBF24).withValues(alpha: 0.15)),
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text('Sign out',
-                style: TextStyle(color: AppColors.error)),
-          ),
-        ],
+        ),
+        child: AlertDialog(
+          title: const Text('Sign out?', style: TextStyle(color: Color(0xFFFBBF24), fontWeight: FontWeight.w600)),
+          content: const Text('You will need to sign in again to join rooms.', style: TextStyle(color: Colors.white70)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFFFBBF24))),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Sign out', style: TextStyle(color: Colors.redAccent)),
+            ),
+          ],
+        ),
       ),
     );
     if (confirmed != true || !mounted) return;
@@ -215,7 +225,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: AppColors.lightBg,
+      backgroundColor: AppColors.roomBgTop, // Dark background
       child: SafeArea(
         child: BlocBuilder<AuthCubit, AuthState>(
           builder: (context, state) {
@@ -240,7 +250,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                         child: Text(
                           user?.email ?? '',
                           style: AppTextStyles.labelSmall
-                              .copyWith(color: AppColors.greyLight),
+                              .copyWith(color: const Color(0x73FBBF24)), // Gold-tinted email
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -302,7 +312,7 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                   ),
                 ),
 
-                const Divider(color: AppColors.divider, height: 1),
+                const Divider(color: Color(0x1AFBBF24), height: 1),
                 _SignOutRow(onTap: _confirmSignOut),
               ],
             );
@@ -372,12 +382,16 @@ class _SaveButton extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           height: 48,
           decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFBBF24), Color(0xFFD97706)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(14),
             boxShadow: enabled
                 ? [
                     BoxShadow(
-                      color: AppColors.purple.withValues(alpha: 0.3),
+                      color: const Color(0xFFD97706).withValues(alpha: 0.3),
                       blurRadius: 14,
                       offset: const Offset(0, 5),
                     ),
@@ -391,12 +405,12 @@ class _SaveButton extends StatelessWidget {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: Colors.black,
                     ),
                   )
                 : Text(
                     'Save changes',
-                    style: AppTextStyles.button.copyWith(color: Colors.white),
+                    style: AppTextStyles.button.copyWith(color: Colors.black, fontWeight: FontWeight.w700),
                   ),
           ),
         ),
