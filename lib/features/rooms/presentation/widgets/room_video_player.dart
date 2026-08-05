@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
+import '../../../../core/services/volume_service.dart';
+import '../../../../core/utils/debug_logger.dart';
 
 class RoomVideoPlayer extends StatefulWidget {
   final String? youtubeId;
@@ -39,10 +41,53 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
   DateTime? _lastSyncRealTime;
   bool _showSuggestions = false;
 
+  /// The YouTube controller drops method calls until the webview is ready, so
+  /// any level chosen before that has to be replayed once it is.
+  bool _volumePending = false;
+
   @override
   void initState() {
     super.initState();
+    VolumeService.instance.videoVolume.addListener(_applyVideoVolume);
     if (widget.youtubeId != null) _initPlayer(widget.youtubeId!);
+  }
+
+  void _applyVideoVolume() {
+    try {
+      final yt = _yt;
+      if (yt == null) return;
+
+      final level = VolumeService.instance.videoVolume.value;
+      if (!yt.value.isReady) {
+        // Not a failure — _onPlayerReady replays it the moment we can.
+        _volumePending = true;
+        DebugLogger.log('video volume $level deferred (player not ready)',
+            tag: 'VOL');
+        return;
+      }
+
+      _volumePending = false;
+      // mute()/unMute() alongside setVolume(): the iframe API honours the mute
+      // flag on platforms that ignore the volume level outright, so silence
+      // works everywhere even where fine-grained level does not.
+      if (level == 0) {
+        yt.mute();
+      } else {
+        yt.unMute();
+        yt.setVolume(level);
+      }
+      DebugLogger.log('video volume → $level', tag: 'VOL');
+    } catch (e) {
+      DebugLogger.error('video volume apply failed', error: e);
+    }
+  }
+
+  /// Attached for every user (the sync listener below is host-only) purely to
+  /// catch the moment the player becomes ready.
+  void _onPlayerReady() {
+    final yt = _yt;
+    if (yt == null || !_volumePending || !yt.value.isReady) return;
+    _applyVideoVolume();
   }
 
   @override
@@ -52,14 +97,18 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
     if (widget.youtubeId != old.youtubeId) {
       if (widget.youtubeId == null) {
         _yt?.removeListener(_onPlayerStateChange);
+        _yt?.removeListener(_onPlayerReady);
         _yt?.dispose();
         _yt = null;
+        _volumePending = false;
         if (mounted) setState(() {});
       } else {
         if (_yt == null) {
           _initPlayer(widget.youtubeId!);
         } else {
           _yt!.load(widget.youtubeId!);
+          // A fresh video can come up at the iframe's own default level.
+          _applyVideoVolume();
         }
         _showSuggestions = false;
       }
@@ -103,6 +152,9 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
         hideControls: !widget.isHost, // Only host can see controls
       ),
     );
+
+    _volumePending = true;
+    _yt!.addListener(_onPlayerReady);
 
     if (widget.isHost) {
       _yt!.addListener(_onPlayerStateChange);
@@ -151,7 +203,9 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
 
   @override
   void dispose() {
+    VolumeService.instance.videoVolume.removeListener(_applyVideoVolume);
     _yt?.removeListener(_onPlayerStateChange);
+    _yt?.removeListener(_onPlayerReady);
     _yt?.dispose();
     _urlCtrl.dispose();
     super.dispose();

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
+import '../../../../core/services/volume_service.dart';
 import '../../../../core/utils/map_utils.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../../auth/presentation/cubits/auth_cubit.dart';
@@ -18,6 +19,7 @@ import '../widgets/mic_fab.dart';
 import '../widgets/room_settings_sheet.dart';
 import '../widgets/room_video_player.dart';
 import '../widgets/unmuted_avatars.dart';
+import '../widgets/volume_sheet.dart';
 import 'youtube_picker_screen.dart';
 
 class RoomScreen extends StatefulWidget {
@@ -202,6 +204,7 @@ class _RoomScreenState extends State<RoomScreen> {
                           isHost: data.isHost,
                           onOpenListeners: () =>
                               Scaffold.of(context).openEndDrawer(),
+                          onOpenVolume: () => showVolumeSheet(context),
                           onOpenSettings: data.isHost
                               ? () => showRoomSettingsSheet(context)
                               : null,
@@ -294,6 +297,7 @@ class _RoomHeader extends StatelessWidget {
   final VoidCallback onLeave;
   final bool isHost;
   final VoidCallback onOpenListeners;
+  final VoidCallback onOpenVolume;
   final VoidCallback? onOpenSettings;
   final VoidCallback? onToggleQueue;
 
@@ -302,6 +306,7 @@ class _RoomHeader extends StatelessWidget {
     required this.onLeave,
     required this.isHost,
     required this.onOpenListeners,
+    required this.onOpenVolume,
     this.onOpenSettings,
     this.onToggleQueue,
   });
@@ -336,6 +341,7 @@ class _RoomHeader extends StatelessWidget {
           // Speaking / unmuted users live where the title used to be.
           const Expanded(child: UnmutedAvatars()),
           const SizedBox(width: 8),
+          _VolumeHeaderAction(onTap: onOpenVolume),
           if (onOpenSettings != null)
             _HeaderAction(
               icon: Icons.tune_rounded,
@@ -355,6 +361,40 @@ class _RoomHeader extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Opens the mixer. The icon mirrors the current levels so a user who muted
+/// something can see why the room went quiet without opening the sheet.
+class _VolumeHeaderAction extends StatelessWidget {
+  final VoidCallback onTap;
+  const _VolumeHeaderAction({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final volume = VolumeService.instance;
+    return ValueListenableBuilder<int>(
+      valueListenable: volume.videoVolume,
+      builder: (context, video, _) {
+        return ValueListenableBuilder<int>(
+          valueListenable: volume.callVolume,
+          builder: (context, call, __) {
+            final anyMuted = video == 0 || call == 0;
+            final lowered = video < VolumeService.maxVolume ||
+                call < VolumeService.maxVolume;
+            return _HeaderAction(
+              icon: anyMuted
+                  ? Icons.volume_off_rounded
+                  : lowered
+                      ? Icons.volume_down_rounded
+                      : Icons.volume_up_rounded,
+              color: anyMuted ? AppColors.error : const Color(0xFF00FFB2),
+              onTap: onTap,
+            );
+          },
+        );
+      },
     );
   }
 }

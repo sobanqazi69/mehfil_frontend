@@ -36,6 +36,9 @@ dependencies:
 
   # LiveKit voice
   livekit_client: ^2.4.2
+  # Pinned to match livekit_client's exact constraint — used directly only for
+  # Helper.setVolume() on remote audio tracks (livekit has no volume API).
+  flutter_webrtc: 1.4.0
   permission_handler: ^11.3.1
   flutter_foreground_task: ^8.17.0
   wakelock_plus: ^1.2.8
@@ -46,6 +49,9 @@ dependencies:
 
   # DI
   get_it: ^8.0.0
+
+  # Local prefs (volume levels)
+  shared_preferences: ^2.3.2
 
   cupertino_icons: ^1.0.8
 

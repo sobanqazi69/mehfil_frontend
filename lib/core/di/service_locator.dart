@@ -2,6 +2,7 @@ import 'package:get_it/get_it.dart';
 import '../network/api_client.dart';
 import '../network/socket_service.dart';
 import '../services/secure_storage_service.dart';
+import '../services/volume_service.dart';
 import '../../features/auth/data/repositories/auth_repository.dart';
 import '../../features/auth/presentation/cubits/auth_cubit.dart';
 import '../../features/rooms/data/repositories/room_repository.dart';
@@ -10,6 +11,9 @@ import '../../features/rooms/presentation/cubits/room_list_cubit.dart';
 final sl = GetIt.instance;
 
 Future<void> setupServiceLocator() async {
+  // Restore the user's saved volume levels before any room can open.
+  await VolumeService.instance.init();
+
   // Core services (singletons)
   sl.registerLazySingleton<SecureStorageService>(() => SecureStorageService());
   sl.registerLazySingleton<SocketService>(() => SocketService());

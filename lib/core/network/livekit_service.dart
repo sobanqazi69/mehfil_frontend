@@ -1,6 +1,8 @@
+import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../constants/api_endpoints.dart';
+import '../services/volume_service.dart';
 import '../utils/debug_logger.dart';
 
 /// Singleton managing the LiveKit voice connection for a room.
@@ -13,6 +15,10 @@ class LiveKitService {
 
   Room? _room;
   EventsListener<RoomEvent>? _listener;
+
+  /// Listener-side playback gain for everyone else's voice, 0.0–1.0. Local
+  /// only: this changes what *we* hear, never what we send.
+  double _callVolume = 1.0;
 
   /// identity (userId string) → audio level, for active speakers only.
   void Function(Map<String, double> levels)? onActiveSpeakersChanged;
@@ -72,8 +78,52 @@ class LiveKitService {
         ),
       );
       DebugLogger.log('LiveKit: connected', tag: 'LK');
+
+      // Whatever level the user last chose applies to this room too.
+      VolumeService.instance.callVolume.addListener(_onCallVolumeChanged);
+      _onCallVolumeChanged();
     } catch (e) {
       DebugLogger.error('LiveKit connect failed', error: e);
+    }
+  }
+
+  void _onCallVolumeChanged() {
+    try {
+      setCallVolume(VolumeService.instance.callGain);
+    } catch (e) {
+      DebugLogger.error('LiveKit call volume listener failed', error: e);
+    }
+  }
+
+  /// Set the playback gain (0.0–1.0) for every remote voice in the room.
+  ///
+  /// livekit_client has no volume API of its own at this version, so the gain
+  /// is pushed down to each subscribed remote audio track through WebRTC. The
+  /// local mic track is deliberately never touched — turning our own voice
+  /// down would only mute us for everyone else.
+  void setCallVolume(double volume) {
+    _callVolume = volume.clamp(0.0, 1.0);
+    final room = _room;
+    if (room == null) return;
+
+    for (final participant in room.remoteParticipants.values) {
+      for (final pub in participant.audioTrackPublications) {
+        _applyVolumeToTrack(pub.track);
+      }
+    }
+  }
+
+  void _applyVolumeToTrack(Track? track) {
+    if (track == null || track is! AudioTrack) return;
+    try {
+      // Fire-and-forget — one track failing to take the gain is a wrong volume
+      // on one voice, never a reason to tear anything down.
+      rtc.Helper.setVolume(_callVolume, track.mediaStreamTrack).catchError(
+        (Object e) =>
+            DebugLogger.error('LiveKit setVolume failed', error: e),
+      );
+    } catch (e) {
+      DebugLogger.error('LiveKit setVolume failed', error: e);
     }
   }
 
@@ -112,6 +162,7 @@ class LiveKitService {
 
   Future<void> disconnect() async {
     try {
+      VolumeService.instance.callVolume.removeListener(_onCallVolumeChanged);
       _listener?.dispose();
       _listener = null;
       if (_room != null) {
@@ -122,6 +173,7 @@ class LiveKitService {
       DebugLogger.log('LiveKit: disconnected', tag: 'LK');
     } catch (e) {
       DebugLogger.error('LiveKit disconnect failed', error: e);
+      VolumeService.instance.callVolume.removeListener(_onCallVolumeChanged);
       _listener = null;
       _room = null;
     }
@@ -140,6 +192,15 @@ class LiveKitService {
           onActiveSpeakersChanged?.call(levels);
         } catch (e) {
           DebugLogger.error('LiveKit speakers event failed', error: e);
+        }
+      })
+      // A voice that arrives after the user set their level must not come in
+      // at full blast, so every new track inherits the current gain.
+      ..on<TrackSubscribedEvent>((event) {
+        try {
+          _applyVolumeToTrack(event.track);
+        } catch (e) {
+          DebugLogger.error('LiveKit track subscribed volume failed', error: e);
         }
       })
       ..on<RoomDisconnectedEvent>((_) {
