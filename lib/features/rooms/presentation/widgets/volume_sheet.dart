@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -21,11 +19,6 @@ Future<void> showVolumeSheet(BuildContext context) {
 const _gold = Color(0xFFFBBF24);
 const _mint = Color(0xFF00FFB2);
 const _sheetBg = Color(0xFF130E26);
-
-/// WebKit treats `HTMLMediaElement.volume` as read-only on iOS, so the YouTube
-/// iframe ignores setVolume() there — only mute/unmute gets through. Showing a
-/// slider that does nothing is worse than not showing one.
-final bool _canSetVideoLevel = !Platform.isIOS;
 
 class _VolumeSheet extends StatelessWidget {
   const _VolumeSheet();
@@ -82,17 +75,13 @@ class _VolumeSheet extends StatelessWidget {
               ),
               _VolumeRow(
                 label: 'Video',
-                // iOS gives the webview no say over media level — only mute.
-                subtitle: _canSetVideoLevel
-                    ? 'Music and sound from the video'
-                    : 'Use the phone’s volume buttons for the level',
+                subtitle: 'Music and sound from the video',
                 accent: _gold,
                 onIcon: Icons.movie_filter_rounded,
                 offIcon: Icons.videocam_off_rounded,
                 listenable: volume.videoVolume,
                 onChanged: volume.setVideoVolume,
                 onToggleMuted: volume.toggleVideoMuted,
-                showSlider: _canSetVideoLevel,
               ),
               Divider(
                 height: 1,
@@ -145,7 +134,6 @@ class _VolumeRow extends StatelessWidget {
   final ValueListenable<int> listenable;
   final ValueChanged<int> onChanged;
   final VoidCallback onToggleMuted;
-  final bool showSlider;
 
   const _VolumeRow({
     required this.label,
@@ -156,7 +144,6 @@ class _VolumeRow extends StatelessWidget {
     required this.listenable,
     required this.onChanged,
     required this.onToggleMuted,
-    this.showSlider = true,
   });
 
   @override
@@ -202,29 +189,21 @@ class _VolumeRow extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (showSlider)
-                    SizedBox(
-                      width: 44,
-                      child: Text(
-                        '$value%',
-                        textAlign: TextAlign.right,
-                        style: AppTextStyles.labelSmall.copyWith(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: tint,
-                        ),
+                  SizedBox(
+                    width: 44,
+                    child: Text(
+                      '$value%',
+                      textAlign: TextAlign.right,
+                      style: AppTextStyles.labelSmall.copyWith(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: tint,
                       ),
-                    )
-                  else
-                    Switch.adaptive(
-                      value: !isMuted,
-                      onChanged: (_) => onToggleMuted(),
-                      activeTrackColor: accent,
                     ),
+                  ),
                 ],
               ),
-              if (showSlider)
-                SliderTheme(
+              SliderTheme(
                 data: SliderThemeData(
                   trackHeight: 4,
                   activeTrackColor: tint,

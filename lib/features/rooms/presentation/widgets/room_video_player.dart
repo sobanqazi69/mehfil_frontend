@@ -67,9 +67,9 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
       }
 
       _volumePending = false;
-      // mute()/unMute() alongside setVolume(): the iframe API honours the mute
-      // flag on platforms that ignore the volume level outright, so silence
-      // works everywhere even where fine-grained level does not.
+      // mute()/unMute() on top of setVolume(): setVolume(0) leaves the player
+      // technically unmuted, and the mute flag is the only thing the iframe
+      // honours everywhere, so 0 means actually silent.
       if (level == 0) {
         yt.mute();
       } else {
