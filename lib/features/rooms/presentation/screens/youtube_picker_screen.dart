@@ -46,9 +46,8 @@ class _YoutubePickerScreenState extends State<YoutubePickerScreen> {
   Future<String> _videoTitle() async {
     try {
       final raw = await _ctrl.getTitle();
-      final cleaned = (raw ?? '')
-          .replaceAll(RegExp(r'\s*-\s*YouTube\s*$'), '')
-          .trim();
+      final cleaned =
+          (raw ?? '').replaceAll(RegExp(r'\s*-\s*YouTube\s*$'), '').trim();
       return cleaned.isEmpty ? 'Watch Party' : cleaned;
     } catch (e) {
       DebugLogger.error('getTitle failed', error: e);
@@ -87,7 +86,8 @@ class _YoutubePickerScreenState extends State<YoutubePickerScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black),
+          icon:
+              const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [

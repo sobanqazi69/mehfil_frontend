@@ -19,6 +19,14 @@ class RoomCubit extends Cubit<RoomState> {
 
   int? _userId;
 
+  /// Who we joined as. ActiveRoomService needs it to leave on our behalf when
+  /// the user closes the minimised bubble, with no room screen in the tree.
+  int? get currentUserId => _userId;
+
+  /// Already live in this room — used to skip a redundant re-join when the
+  /// room screen is rebuilt after being restored from the minimised bubble.
+  bool isActiveIn(int roomId) => _roomId == roomId && state is RoomLoaded;
+
   /// identity (userId string) → audio level for whoever is currently speaking.
   /// Kept off the bloc state and fed via a throttled ValueNotifier so the
   /// speaking rings repaint ~8fps without rebuilding the whole room tree.

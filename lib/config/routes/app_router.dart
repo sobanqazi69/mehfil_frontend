@@ -3,12 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/di/service_locator.dart';
+import '../../core/services/active_room_service.dart';
 import '../../features/auth/presentation/cubits/auth_cubit.dart';
 import '../../features/auth/presentation/cubits/auth_state.dart';
 import '../../features/auth/presentation/screens/sign_in_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
-import '../../features/rooms/data/repositories/room_repository.dart';
-import '../../features/rooms/presentation/cubits/room_cubit.dart';
 import '../../features/rooms/presentation/screens/room_screen.dart';
 import '../../features/rooms/presentation/screens/youtube_picker_screen.dart';
 import '../../features/splash/presentation/screens/splash_screen.dart';
@@ -55,8 +54,11 @@ GoRouter buildAppRouter() {
           final id = int.tryParse(
                 state.pathParameters['id'] ?? '') ??
               0;
-          return BlocProvider(
-            create: (_) => RoomCubit(sl<RoomRepository>()),
+          // .value, not create: the cubit outlives this route so a minimised
+          // room keeps its socket, its voice and its video running.
+          // ActiveRoomService owns its lifetime.
+          return BlocProvider.value(
+            value: ActiveRoomService.instance.cubitFor(id),
             child: RoomScreen(roomId: id),
           );
         },

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
 import '../../../../core/network/socket_service.dart';
+import '../../../../core/services/active_room_service.dart';
 import '../../../../core/services/volume_service.dart';
 import '../../../../core/utils/map_utils.dart';
 import '../../../../core/widgets/app_snackbar.dart';
@@ -50,6 +51,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    ActiveRoomService.instance.onRoomScreenShown();
     final cubit = context.read<RoomCubit>();
     cubit.micBlocked = (message) {
       if (mounted) AppSnackbar.error(context, message);
@@ -60,7 +62,12 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
 
     final authState = context.read<AuthCubit>().state;
     if (authState is AuthAuthenticated) {
-      cubit.enterRoom(widget.roomId, authState.user.id);
+      // Restored from the minimised bubble: the cubit is already in this room,
+      // so re-joining would flash the loading screen and re-announce us for
+      // nothing.
+      if (!cubit.isActiveIn(widget.roomId)) {
+        cubit.enterRoom(widget.roomId, authState.user.id);
+      }
     }
   }
 
@@ -71,6 +78,9 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
     if (authState is AuthAuthenticated) {
       await context.read<RoomCubit>().leaveRoom(authState.user.id);
     }
+    // The cubit outlives this route now, so leaving has to retire it
+    // explicitly — otherwise the next room reuses a dead session.
+    ActiveRoomService.instance.clear();
     if (mounted) {
       if (context.canPop()) {
         context.pop();
@@ -89,11 +99,17 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
     if (_hasLeft || _leaveDialogOpen) return;
     _leaveDialogOpen = true;
     try {
-      final res = await showDialog<bool>(
+      final res = await showDialog<_LeaveChoice>(
         context: context,
         builder: (c) => const _LeaveConfirmDialog(),
       );
-      if (res == true) await _leave();
+      if (!mounted) return;
+      if (res == _LeaveChoice.leave) {
+        await _leave();
+      } else if (res == _LeaveChoice.keep) {
+        // Stay in the room, just get out of its screen.
+        ActiveRoomService.instance.minimise(context);
+      }
     } finally {
       if (mounted) _leaveDialogOpen = false;
     }
@@ -141,6 +157,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
     if (_hasLeft) return;
     _hasLeft = true;
 
+    ActiveRoomService.instance.clear();
     context.read<RoomListCubit>().refresh(silent: true);
     context.go('/');
     AppSnackbar.error(context, 'You have been kicked from the room');
@@ -250,6 +267,8 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
                           onOpenListeners: () =>
                               Scaffold.of(context).openEndDrawer(),
                           onOpenVolume: () => showVolumeSheet(context),
+                          onMinimise: () =>
+                              ActiveRoomService.instance.minimise(context),
                           onOpenSettings: data.isHost
                               ? () => showRoomSettingsSheet(context)
                               : null,
@@ -359,6 +378,7 @@ class _RoomHeader extends StatelessWidget {
   final bool isHost;
   final VoidCallback onOpenListeners;
   final VoidCallback onOpenVolume;
+  final VoidCallback onMinimise;
   final VoidCallback? onOpenSettings;
   final VoidCallback? onToggleQueue;
 
@@ -368,6 +388,7 @@ class _RoomHeader extends StatelessWidget {
     required this.isHost,
     required this.onOpenListeners,
     required this.onOpenVolume,
+    required this.onMinimise,
     this.onOpenSettings,
     this.onToggleQueue,
   });
@@ -750,6 +771,9 @@ class _LoadingScaffold extends StatelessWidget {
 
 // ── Leave Confirmation Dialog ─────────────────────────────────────────────
 
+/// What the close dialog resolved to.
+enum _LeaveChoice { stay, keep, leave }
+
 class _LeaveConfirmDialog extends StatelessWidget {
   const _LeaveConfirmDialog();
 
@@ -792,24 +816,64 @@ class _LeaveConfirmDialog extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Leave Room?',
+              'Leave room?',
               style: AppTextStyles.heading3.copyWith(color: const Color(0xFFFBBF24)), // Gold title
             ),
             const SizedBox(height: 8),
             Text(
-              "You'll leave this watch party.\nOthers can still continue without you.",
+              'Keep it running in the background, or leave the party for good.',
               style: AppTextStyles.bodySmall.copyWith(
                 color: Colors.white.withValues(alpha: 0.7), // White subtitle
                 height: 1.5,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 22),
+            // The reason most people hit the close button: they want to go
+            // somewhere else in the app, not abandon the room.
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(_LeaveChoice.keep),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00FFB2).withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFF00FFB2).withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.keyboard_arrow_down_rounded,
+                        color: Color(0xFF00FFB2), size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Keep it running',
+                      style: AppTextStyles.button.copyWith(
+                        color: const Color(0xFF00FFB2),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Stay in the room while you browse',
+              style: AppTextStyles.labelSmall.copyWith(
+                fontSize: 10,
+                color: Colors.white.withValues(alpha: 0.4),
+              ),
+            ),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => Navigator.of(context).pop(false),
+                    onTap: () => Navigator.of(context).pop(_LeaveChoice.stay),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       decoration: BoxDecoration(
@@ -829,7 +893,7 @@ class _LeaveConfirmDialog extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => Navigator.of(context).pop(true),
+                    onTap: () => Navigator.of(context).pop(_LeaveChoice.leave),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       decoration: BoxDecoration(
