@@ -82,6 +82,15 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
     }
   }
 
+  /// Tear the controller down and forget it. Safe to call when there is none.
+  void _disposePlayer() {
+    _yt?.removeListener(_onPlayerStateChange);
+    _yt?.removeListener(_onPlayerReady);
+    _yt?.dispose();
+    _yt = null;
+    _volumePending = false;
+  }
+
   /// Attached for every user (the sync listener below is host-only) purely to
   /// catch the moment the player becomes ready.
   void _onPlayerReady() {
@@ -94,24 +103,40 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
   void didUpdateWidget(RoomVideoPlayer old) {
     super.didUpdateWidget(old);
 
-    if (widget.youtubeId != old.youtubeId) {
-      if (widget.youtubeId == null) {
-        _yt?.removeListener(_onPlayerStateChange);
-        _yt?.removeListener(_onPlayerReady);
-        _yt?.dispose();
-        _yt = null;
-        _volumePending = false;
+    final id = widget.youtubeId;
+
+    if (id == null) {
+      if (widget.youtubeId != old.youtubeId) {
+        _disposePlayer();
         if (mounted) setState(() {});
-      } else {
-        if (_yt == null) {
-          _initPlayer(widget.youtubeId!);
-        } else {
-          _yt!.load(widget.youtubeId!);
-          // A fresh video can come up at the iframe's own default level.
-          _applyVideoVolume();
-        }
-        _showSuggestions = false;
       }
+      return;
+    }
+
+    // Host handover. `hideControls` is baked into the controller when it is
+    // constructed and the sync listener is only attached for a host, so a
+    // promoted listener would otherwise keep a read-only player forever: no
+    // pause, no seek, and none of their actions reaching the room. Rebuild at
+    // the current position so the swap is invisible.
+    if (widget.isHost != old.isHost) {
+      final resumeAt =
+          _yt?.value.position.inSeconds.toDouble() ?? widget.timestampSec;
+      final wasPlaying = _yt?.value.isPlaying ?? widget.isPlaying;
+      _disposePlayer();
+      _showSuggestions = false;
+      _initPlayer(id, startAt: resumeAt, autoPlay: wasPlaying); // rebuilds
+      return;
+    }
+
+    if (widget.youtubeId != old.youtubeId) {
+      if (_yt == null) {
+        _initPlayer(id);
+      } else {
+        _yt!.load(id);
+        // A fresh video can come up at the iframe's own default level.
+        _applyVideoVolume();
+      }
+      _showSuggestions = false;
       return;
     }
 
@@ -141,12 +166,15 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
     }
   }
 
-  void _initPlayer(String id) {
+  /// [startAt]/[autoPlay] override the room state — used on host handover to
+  /// resume exactly where the old controller was rather than jumping back to
+  /// the last broadcast timestamp.
+  void _initPlayer(String id, {double? startAt, bool? autoPlay}) {
     _yt = YoutubePlayerController(
       initialVideoId: id,
       flags: YoutubePlayerFlags(
-        autoPlay: widget.isPlaying,
-        startAt: widget.timestampSec.toInt(),
+        autoPlay: autoPlay ?? widget.isPlaying,
+        startAt: (startAt ?? widget.timestampSec).toInt(),
         mute: false,
         useHybridComposition: true,
         hideControls: !widget.isHost, // Only host can see controls
@@ -157,6 +185,11 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
     _yt!.addListener(_onPlayerReady);
 
     if (widget.isHost) {
+      // Reset the throttle bookkeeping: a new host has broadcast nothing yet,
+      // so their first play/pause/seek must go out immediately.
+      _lastSyncTimestamp = startAt ?? widget.timestampSec;
+      _lastSyncIsPlaying = autoPlay ?? widget.isPlaying;
+      _lastSyncRealTime = null;
       _yt!.addListener(_onPlayerStateChange);
     }
 
@@ -204,9 +237,7 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
   @override
   void dispose() {
     VolumeService.instance.videoVolume.removeListener(_applyVideoVolume);
-    _yt?.removeListener(_onPlayerStateChange);
-    _yt?.removeListener(_onPlayerReady);
-    _yt?.dispose();
+    _disposePlayer();
     _urlCtrl.dispose();
     super.dispose();
   }
