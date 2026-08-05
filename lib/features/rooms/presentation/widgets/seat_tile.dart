@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../config/theme/app_text_styles.dart';
 import '../../data/models/room_seat_model.dart';
+import 'animated_emoji.dart';
 
-const _gold = Color(0xFFFBBF24);
 const _mint = Color(0xFF00FFB2);
 
 /// A single mic slot: avatar when taken, a dashed outline when free.
@@ -20,6 +20,9 @@ class SeatTile extends StatelessWidget {
   /// Driven by LiveKit's active-speaker levels.
   final bool isSpeaking;
 
+  /// Emoji floating over this chair right now, if any.
+  final String? reaction;
+
   final VoidCallback? onTap;
 
   const SeatTile({
@@ -27,6 +30,7 @@ class SeatTile extends StatelessWidget {
     required this.seat,
     this.isMine = false,
     this.isSpeaking = false,
+    this.reaction,
     this.onTap,
   });
 
@@ -40,10 +44,71 @@ class SeatTile extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _CinemaChair(seat: seat, isMine: isMine, isSpeaking: isSpeaking),
+            Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.topCenter,
+              children: [
+                _CinemaChair(
+                    seat: seat, isMine: isMine, isSpeaking: isSpeaking),
+                if (reaction != null)
+                  Positioned(
+                    // Above the chair, overflowing the tile — the row's
+                    // Clip.none lets it float free rather than squashing in.
+                    top: -22,
+                    child: _SeatReaction(
+                      // Keyed so a repeat of the same emoji restarts the
+                      // animation instead of sitting there already finished.
+                      key: ValueKey('${seat.seatNo}-$reaction-${identityHashCode(reaction)}'),
+                      emoji: reaction!,
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: 6),
             _SeatLabel(seat: seat, isMine: isMine),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The emoji that pops over a chair: rises slightly and fades as it settles,
+/// so it reads as "just sent" rather than as a permanent badge.
+class _SeatReaction extends StatefulWidget {
+  final String emoji;
+  const _SeatReaction({super.key, required this.emoji});
+
+  @override
+  State<_SeatReaction> createState() => _SeatReactionState();
+}
+
+class _SeatReactionState extends State<_SeatReaction>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+  )..forward();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final curve = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack);
+    return FadeTransition(
+      opacity: _ctrl,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.45),
+          end: Offset.zero,
+        ).animate(curve),
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.6, end: 1).animate(curve),
+          child: AnimatedEmoji(char: widget.emoji, size: 34, repeat: false),
         ),
       ),
     );
@@ -100,7 +165,8 @@ class _CinemaChair extends StatelessWidget {
             child: _avatarOrIcon(),
           ),
 
-          // 3. Status Badges
+          // 3. Status Badges — the gold chair already marks the host, so a
+          // crown on top of it was only adding clutter.
           if (isOccupied && seat.isMuted)
             const Positioned(
               right: 2,
@@ -108,15 +174,6 @@ class _CinemaChair extends StatelessWidget {
               child: _Badge(
                 icon: Icons.mic_off_rounded,
                 color: Color(0xFFEF4444),
-              ),
-            ),
-          if (isHost && isOccupied)
-            const Positioned(
-              left: 2,
-              top: 2,
-              child: _Badge(
-                icon: Icons.workspace_premium_rounded,
-                color: _gold,
               ),
             ),
         ],

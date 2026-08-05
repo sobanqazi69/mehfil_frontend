@@ -26,6 +26,13 @@ class RoomCubit extends Cubit<RoomState> {
   Map<String, double>? _pendingLevels;
   Timer? _levelsThrottle;
 
+  /// seatNo → the emoji currently floating over that chair. Kept off the bloc
+  /// state for the same reason as [speakingLevels]: a reaction should repaint
+  /// one seat, not the whole room tree.
+  final seatReactions = ValueNotifier<Map<int, String>>({});
+  final Map<int, Timer> _reactionTimers = {};
+  static const _reactionLifetime = Duration(milliseconds: 2600);
+
   RoomCubit(this._repo, {LiveKitService? livekit})
       : _livekit = livekit ?? LiveKitService.instance,
         super(const RoomInitial());
@@ -170,6 +177,7 @@ class RoomCubit extends Cubit<RoomState> {
     _repo.onMicBlocked(_onMicBlocked);
     _repo.onSeats(_onSeats);
     _repo.onSeatDenied(_onSeatDenied);
+    _repo.onReaction(_onReaction);
   }
 
   /// Set by the room screen to surface a snackbar when a seat is refused.
@@ -393,6 +401,42 @@ class RoomCubit extends Cubit<RoomState> {
     _repo.setSeatLocked(_roomId!, seatNo, isLocked);
   }
 
+  // ── Reactions ────────────────────────────────────────────────────────────
+
+  /// Where a reaction goes depends on where the sender is: over their chair if
+  /// they hold a mic, into chat if they are in the audience. Deciding it here
+  /// keeps every caller — chat bar, seat, anywhere later — consistent.
+  void sendReaction(String emoji) {
+    if (_roomId == null || emoji.isEmpty) return;
+    final s = state;
+    if (s is! RoomLoaded) return;
+
+    final me = _userId;
+    final seated = me != null && s.seatOf(me) != null;
+
+    if (seated) {
+      _repo.sendReaction(_roomId!, emoji);
+    } else {
+      sendMessage(emoji);
+    }
+  }
+
+  void _onReaction(int seatNo, String emoji) {
+    if (isClosed) return;
+
+    seatReactions.value = {...seatReactions.value, seatNo: emoji};
+
+    // Restart the clock on a re-send so someone spamming one seat does not get
+    // their reaction cleared early by the previous timer.
+    _reactionTimers[seatNo]?.cancel();
+    _reactionTimers[seatNo] = Timer(_reactionLifetime, () {
+      _reactionTimers.remove(seatNo);
+      if (isClosed) return;
+      seatReactions.value = Map<int, String>.from(seatReactions.value)
+        ..remove(seatNo);
+    });
+  }
+
   void _onSeats(List<RoomSeatModel> seats) {
     if (isClosed) return;
     if (state is! RoomLoaded) return;
@@ -527,7 +571,12 @@ class RoomCubit extends Cubit<RoomState> {
     _stopVoice();
     _levelsThrottle?.cancel();
     _levelsThrottle = null;
+    for (final timer in _reactionTimers.values) {
+      timer.cancel();
+    }
+    _reactionTimers.clear();
     speakingLevels.dispose();
+    seatReactions.dispose();
     return super.close();
   }
 }

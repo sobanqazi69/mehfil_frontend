@@ -140,6 +140,24 @@ class RoomRepository {
     });
   }
 
+  /// Seated-user reaction. Ephemeral — never persisted as a message.
+  void sendReaction(int roomId, String emoji) =>
+      _socket.emit('reaction:send', {'roomId': roomId, 'emoji': emoji});
+
+  void onReaction(Function(int seatNo, String emoji) callback) {
+    _socket.on('reaction:receive', (data) {
+      try {
+        final payload = MapUtils.asMap(data);
+        final seatNo = MapUtils.handleNullableIntKey(payload, 'seatNo');
+        final emoji = MapUtils.handleNullableStringKey(payload, 'emoji');
+        if (seatNo == null || emoji == null || emoji.isEmpty) return;
+        callback(seatNo, emoji);
+      } catch (e) {
+        DebugLogger.error('onReaction parse error', error: e);
+      }
+    });
+  }
+
   /// The server refused a seat (taken, locked, host-only, or lost a race).
   void onSeatDenied(Function(String) callback) {
     _socket.on('seat:denied', (data) {
@@ -327,6 +345,7 @@ class RoomRepository {
     _socket.off('mic:blocked');
     _socket.off('room:seats');
     _socket.off('seat:denied');
+    _socket.off('reaction:receive');
   }
 
   String _parseError(DioException e) {
