@@ -82,21 +82,36 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
 
   bool _leaveDialogOpen = false;
 
-  void _confirmLeave() {
+  /// Straight from a tap on the close button: nothing is locked, so show the
+  /// dialog now. The flag is cleared in a finally — an early return that left
+  /// it set would disable the button for the rest of the session.
+  Future<void> _confirmLeave() async {
     if (_hasLeft || _leaveDialogOpen) return;
     _leaveDialogOpen = true;
-
-    // Defer to next frame — onPopInvokedWithResult fires while the navigator
-    // is locked mid-pop; pushing a dialog at that moment throws an assertion.
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
+    try {
       final res = await showDialog<bool>(
         context: context,
         builder: (c) => const _LeaveConfirmDialog(),
       );
-      _leaveDialogOpen = false;
-      if (res == true) _leave();
+      if (res == true) await _leave();
+    } finally {
+      if (mounted) _leaveDialogOpen = false;
+    }
+  }
+
+  /// From the system back gesture only. `onPopInvokedWithResult` fires while
+  /// the navigator is locked mid-pop, so pushing a dialog right then throws an
+  /// assertion — it has to wait for the frame to finish.
+  void _confirmLeaveDeferred() {
+    if (_hasLeft || _leaveDialogOpen) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _confirmLeave();
     });
+    // addPostFrameCallback does NOT schedule a frame. On an idle room — video
+    // paused, nothing animating — the callback would sit unfired until some
+    // unrelated repaint happened, which is why leaving took several taps.
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   Future<void> _openYoutubePicker() async {
@@ -186,7 +201,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
             // guard that second call re-opens the dialog on a room we already
             // left.
             if (didPop || _hasLeft) return;
-            _confirmLeave();
+            _confirmLeaveDeferred();
           },
           child: GestureDetector(
             onTap: () => FocusScope.of(context).unfocus(),
