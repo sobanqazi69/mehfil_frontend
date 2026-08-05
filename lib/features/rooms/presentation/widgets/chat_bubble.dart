@@ -2,7 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
+import '../../../../core/constants/room_reactions.dart';
 import '../../data/models/message_model.dart';
+import 'animated_emoji.dart';
 
 class ChatBubble extends StatelessWidget {
   final MessageModel message;
@@ -85,6 +87,34 @@ class _Bubble extends StatelessWidget {
       bottomLeft: const Radius.circular(16),
       bottomRight: const Radius.circular(16),
     );
+
+    // A reaction sent from the audience arrives as an ordinary message. Give
+    // it the big animated treatment instead of a tiny glyph in a bubble —
+    // otherwise the same emoji looks lively on a seat and dead in chat.
+    if (RoomReactions.isReactionOnly(message.text)) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Column(
+          crossAxisAlignment:
+              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!isMe && showSender)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  message.name,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.cyan,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            AnimatedEmoji(char: message.text.trim(), size: 46),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

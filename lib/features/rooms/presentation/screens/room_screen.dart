@@ -16,6 +16,7 @@ import '../cubits/room_cubit.dart';
 import '../cubits/room_list_cubit.dart';
 import '../cubits/room_state.dart';
 import '../widgets/chat_bubble.dart';
+import '../widgets/emoji_picker_sheet.dart';
 import '../widgets/listeners_drawer.dart';
 import '../widgets/mic_fab.dart';
 import '../widgets/room_seats.dart';
@@ -144,6 +145,19 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
     context.read<RoomListCubit>().refresh(silent: true);
     context.go('/');
     AppSnackbar.error(context, 'You have been kicked from the room');
+  }
+
+  Future<void> _openEmojiPicker(int currentUserId) async {
+    final cubit = context.read<RoomCubit>();
+    final state = cubit.state;
+    final isSeated =
+        state is RoomLoaded && state.seatOf(currentUserId) != null;
+
+    final emoji = await showEmojiPickerSheet(context, isSeated: isSeated);
+    if (emoji == null) return;
+    // The cubit picks the destination — seat overlay or chat — from the same
+    // seat state, so the picker's hint and the outcome cannot disagree.
+    cubit.sendReaction(emoji);
   }
 
   void _sendMessage() {
@@ -307,6 +321,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
                           isMicMuted: mic.isMicMuted,
                           isHostMuted: mic.isHostMuted,
                           onSend: _sendMessage,
+                          onEmoji: () => _openEmojiPicker(currentUserId),
                           onMicToggle: () => context
                               .read<RoomCubit>()
                               .toggleMic(currentUserId),
@@ -481,11 +496,37 @@ class _HeaderAction extends StatelessWidget {
 
 // ── Participants ──────────────────────────────────────────────────────────
 
+class _EmojiButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _EmojiButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFBBF24).withValues(alpha: 0.12),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: const Color(0xFFFBBF24).withValues(alpha: 0.30),
+          ),
+        ),
+        child: const Icon(Icons.emoji_emotions_rounded,
+            color: Color(0xFFFBBF24), size: 20),
+      ),
+    );
+  }
+}
+
 class _ChatBar extends StatelessWidget {
   final TextEditingController ctrl;
   final bool isMicMuted;
   final bool isHostMuted;
   final VoidCallback onSend;
+  final VoidCallback onEmoji;
   final VoidCallback onMicToggle;
 
   const _ChatBar({
@@ -493,6 +534,7 @@ class _ChatBar extends StatelessWidget {
     required this.isMicMuted,
     required this.isHostMuted,
     required this.onSend,
+    required this.onEmoji,
     required this.onMicToggle,
   });
 
@@ -518,7 +560,9 @@ class _ChatBar extends StatelessWidget {
                 isHostMuted: isHostMuted,
                 onToggle: onMicToggle,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
+              _EmojiButton(onTap: onEmoji),
+              const SizedBox(width: 8),
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(

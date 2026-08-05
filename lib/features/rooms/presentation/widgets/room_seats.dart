@@ -101,7 +101,7 @@ class RoomSeats extends StatelessWidget {
               ValueListenableBuilder<Map<String, double>>(
                 valueListenable: context.read<RoomCubit>().speakingLevels,
                 builder: (_, levels, __) {
-                  return ValueListenableBuilder<Map<int, String>>(
+                  return ValueListenableBuilder<Map<int, ({String emoji, int id})>>(
                     valueListenable: context.read<RoomCubit>().seatReactions,
                     builder: (_, reactions, __) => Column(
                     mainAxisSize: MainAxisSize.min,
@@ -132,7 +132,8 @@ class RoomSeats extends StatelessWidget {
                                           (levels['${seat.userId}'] ?? 0) >
                                                   0.05 &&
                                               !seat.isMuted,
-                                      reaction: reactions[seat.seatNo],
+                                      reaction: reactions[seat.seatNo]?.emoji,
+                                      reactionId: reactions[seat.seatNo]?.id,
                                       onTap: () => _onSeatTap(
                                         context,
                                         seat: seat,

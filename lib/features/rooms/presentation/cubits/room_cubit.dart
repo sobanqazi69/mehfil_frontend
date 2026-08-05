@@ -26,11 +26,16 @@ class RoomCubit extends Cubit<RoomState> {
   Map<String, double>? _pendingLevels;
   Timer? _levelsThrottle;
 
-  /// seatNo → the emoji currently floating over that chair. Kept off the bloc
-  /// state for the same reason as [speakingLevels]: a reaction should repaint
-  /// one seat, not the whole room tree.
-  final seatReactions = ValueNotifier<Map<int, String>>({});
+  /// seatNo → the reaction currently floating over that chair. Kept off the
+  /// bloc state for the same reason as [speakingLevels]: a reaction should
+  /// repaint one seat, not the whole room tree.
+  ///
+  /// [id] exists so the same emoji sent twice in a row is still a distinct
+  /// value — without it the widget key would not change and the pop animation
+  /// would silently fail to replay.
+  final seatReactions = ValueNotifier<Map<int, ({String emoji, int id})>>({});
   final Map<int, Timer> _reactionTimers = {};
+  int _reactionSeq = 0;
   static const _reactionLifetime = Duration(milliseconds: 2600);
 
   RoomCubit(this._repo, {LiveKitService? livekit})
@@ -424,7 +429,10 @@ class RoomCubit extends Cubit<RoomState> {
   void _onReaction(int seatNo, String emoji) {
     if (isClosed) return;
 
-    seatReactions.value = {...seatReactions.value, seatNo: emoji};
+    seatReactions.value = {
+      ...seatReactions.value,
+      seatNo: (emoji: emoji, id: ++_reactionSeq),
+    };
 
     // Restart the clock on a re-send so someone spamming one seat does not get
     // their reaction cleared early by the previous timer.
@@ -432,8 +440,9 @@ class RoomCubit extends Cubit<RoomState> {
     _reactionTimers[seatNo] = Timer(_reactionLifetime, () {
       _reactionTimers.remove(seatNo);
       if (isClosed) return;
-      seatReactions.value = Map<int, String>.from(seatReactions.value)
-        ..remove(seatNo);
+      seatReactions.value =
+          Map<int, ({String emoji, int id})>.from(seatReactions.value)
+            ..remove(seatNo);
     });
   }
 

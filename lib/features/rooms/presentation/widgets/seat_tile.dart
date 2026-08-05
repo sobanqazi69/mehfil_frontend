@@ -23,6 +23,9 @@ class SeatTile extends StatelessWidget {
   /// Emoji floating over this chair right now, if any.
   final String? reaction;
 
+  /// Distinguishes consecutive sends of the same emoji.
+  final int? reactionId;
+
   final VoidCallback? onTap;
 
   const SeatTile({
@@ -31,6 +34,7 @@ class SeatTile extends StatelessWidget {
     this.isMine = false,
     this.isSpeaking = false,
     this.reaction,
+    this.reactionId,
     this.onTap,
   });
 
@@ -58,7 +62,7 @@ class SeatTile extends StatelessWidget {
                     child: _SeatReaction(
                       // Keyed so a repeat of the same emoji restarts the
                       // animation instead of sitting there already finished.
-                      key: ValueKey('${seat.seatNo}-$reaction-${identityHashCode(reaction)}'),
+                      key: ValueKey('${seat.seatNo}-$reactionId'),
                       emoji: reaction!,
                     ),
                   ),
