@@ -120,6 +120,10 @@ class RoomRepository {
   void removeFromSeat(int roomId, int seatNo) =>
       _socket.emit('seat:remove', {'roomId': roomId, 'seatNo': seatNo});
 
+  /// Host-only; closes a slot. Locking an occupied seat also clears it.
+  void setSeatLocked(int roomId, int seatNo, bool isLocked) => _socket.emit(
+      'seat:lock', {'roomId': roomId, 'seatNo': seatNo, 'isLocked': isLocked});
+
   /// Authoritative seat list. Broadcast on every seat change.
   void onSeats(Function(List<RoomSeatModel>) callback) {
     _socket.on('room:seats', (data) {

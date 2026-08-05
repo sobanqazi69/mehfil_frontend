@@ -186,9 +186,9 @@ class RoomSeats extends StatelessWidget {
   }) {
     final cubit = context.read<RoomCubit>();
 
-    // Our own seat: step down.
+    // Our own seat: never step down on a stray tap — offer the choice.
     if (seat.userId == currentUserId) {
-      cubit.leaveSeat();
+      showMySeatActions(context, seat);
       return;
     }
 
@@ -198,20 +198,126 @@ class RoomSeats extends StatelessWidget {
       return;
     }
 
+    // Empty. The host gets the management sheet — it is the only way to reach
+    // lock/unlock, and it is also how a locked seat gets reopened.
+    if (isHost) {
+      showSeatHostActions(context, seat);
+      return;
+    }
+
     if (seat.isLocked) return;
 
     // Only the host may take the host seat.
-    if (seat.isHostSeat && !isHost) return;
+    if (seat.isHostSeat) return;
 
     cubit.takeSeat(seat.seatNo);
   }
 }
 
-/// Host-only actions on another user's seat. Declared here rather than in its
-/// own file because it exists solely as this row's tap target.
+const _sheetGold = Color(0xFFFBBF24);
+const _sheetRed = Color(0xFFEF4444);
+const _sheetGreen = Color(0xFF10B981);
+
+/// Options for the seat we are sitting on. Tapping our own chair opens this
+/// rather than standing up straight away — losing the mic to a stray tap in a
+/// full room is not something you can undo.
+Future<void> showMySeatActions(BuildContext context, RoomSeatModel seat) {
+  final cubit = context.read<RoomCubit>();
+  final state = cubit.state;
+  final selfMuted = state is RoomLoaded ? state.isMicMuted : true;
+
+  return _seatSheet(
+    context,
+    title: 'Your seat',
+    actions: [
+      // The host's seat-mute is not ours to lift, so only offer the self-mute
+      // when we are not already silenced by them.
+      if (!seat.isMuted)
+        _SeatAction(
+          icon: selfMuted ? Icons.mic_rounded : Icons.mic_off_rounded,
+          label: selfMuted ? 'Unmute my mic' : 'Mute my mic',
+          color: selfMuted ? _sheetGreen : _sheetRed,
+          onTap: () {
+            cubit.toggleMic(seat.userId ?? 0);
+            Navigator.pop(context);
+          },
+        ),
+      _SeatAction(
+        icon: Icons.logout_rounded,
+        label: 'Leave seat',
+        color: _sheetRed,
+        onTap: () {
+          cubit.leaveSeat();
+          Navigator.pop(context);
+        },
+      ),
+    ],
+  );
+}
+
+/// Host controls for any seat — occupied or not. An empty seat still needs a
+/// way in, because lock/unlock lives here.
 Future<void> showSeatHostActions(BuildContext context, RoomSeatModel seat) {
   final cubit = context.read<RoomCubit>();
 
+  return _seatSheet(
+    context,
+    title: seat.name ?? 'Seat ${seat.seatNo + 1}',
+    actions: [
+      if (seat.isEmpty && !seat.isLocked)
+        _SeatAction(
+          icon: Icons.event_seat_rounded,
+          label: 'Sit here',
+          color: const Color(0xFF00FFB2),
+          onTap: () {
+            cubit.takeSeat(seat.seatNo);
+            Navigator.pop(context);
+          },
+        ),
+      if (seat.isOccupied) ...[
+        _SeatAction(
+          icon: seat.isMuted ? Icons.mic_rounded : Icons.mic_off_rounded,
+          label: seat.isMuted ? 'Unmute on seat' : 'Mute on seat',
+          color: seat.isMuted ? _sheetGreen : _sheetRed,
+          onTap: () {
+            cubit.setSeatMuted(seat.seatNo, !seat.isMuted);
+            Navigator.pop(context);
+          },
+        ),
+        _SeatAction(
+          icon: Icons.logout_rounded,
+          label: 'Remove from seat',
+          color: _sheetRed,
+          onTap: () {
+            cubit.removeFromSeat(seat.seatNo);
+            Navigator.pop(context);
+          },
+        ),
+      ],
+      _SeatAction(
+        icon: seat.isLocked ? Icons.lock_open_rounded : Icons.lock_rounded,
+        label: seat.isLocked ? 'Unlock seat' : 'Lock seat',
+        subtitle: seat.isLocked
+            ? 'Let anyone sit here again'
+            : seat.isOccupied
+                // Say so up front — the host is about to cut someone off.
+                ? 'Closes the seat and removes them'
+                : 'Nobody can take this seat',
+        color: seat.isLocked ? _sheetGreen : _sheetGold,
+        onTap: () {
+          cubit.setSeatLocked(seat.seatNo, !seat.isLocked);
+          Navigator.pop(context);
+        },
+      ),
+    ],
+  );
+}
+
+Future<void> _seatSheet(
+  BuildContext context, {
+  required String title,
+  required List<Widget> actions,
+}) {
   return showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
@@ -223,9 +329,7 @@ Future<void> showSeatHostActions(BuildContext context, RoomSeatModel seat) {
           decoration: BoxDecoration(
             color: const Color(0xFF130E26),
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: const Color(0xFFFBBF24).withValues(alpha: 0.15),
-            ),
+            border: Border.all(color: _sheetGold.withValues(alpha: 0.15)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -235,45 +339,21 @@ Future<void> showSeatHostActions(BuildContext context, RoomSeatModel seat) {
                 child: Row(
                   children: [
                     const Icon(Icons.event_seat_rounded,
-                        size: 17, color: Color(0xFFFBBF24)),
+                        size: 17, color: _sheetGold),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        seat.name ?? 'Seat ${seat.seatNo + 1}',
-                        style: AppTextStyles.heading3.copyWith(
-                          fontSize: 15,
-                          color: const Color(0xFFFBBF24),
-                        ),
+                        title,
+                        style: AppTextStyles.heading3
+                            .copyWith(fontSize: 15, color: _sheetGold),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
               ),
-              Divider(
-                height: 1,
-                color: const Color(0xFFFBBF24).withValues(alpha: 0.12),
-              ),
-              _SeatAction(
-                icon: seat.isMuted ? Icons.mic_rounded : Icons.mic_off_rounded,
-                label: seat.isMuted ? 'Unmute on seat' : 'Mute on seat',
-                color: seat.isMuted
-                    ? const Color(0xFF10B981)
-                    : const Color(0xFFEF4444),
-                onTap: () {
-                  cubit.setSeatMuted(seat.seatNo, !seat.isMuted);
-                  Navigator.pop(context);
-                },
-              ),
-              _SeatAction(
-                icon: Icons.logout_rounded,
-                label: 'Remove from seat',
-                color: const Color(0xFFEF4444),
-                onTap: () {
-                  cubit.removeFromSeat(seat.seatNo);
-                  Navigator.pop(context);
-                },
-              ),
+              Divider(height: 1, color: _sheetGold.withValues(alpha: 0.12)),
+              ...actions,
             ],
           ),
         ),
@@ -285,6 +365,7 @@ Future<void> showSeatHostActions(BuildContext context, RoomSeatModel seat) {
 class _SeatAction extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String? subtitle;
   final Color color;
   final VoidCallback onTap;
 
@@ -293,6 +374,7 @@ class _SeatAction extends StatelessWidget {
     required this.label,
     required this.color,
     required this.onTap,
+    this.subtitle,
   });
 
   @override
@@ -302,15 +384,31 @@ class _SeatAction extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: Row(
             children: [
               Icon(icon, size: 19, color: color),
               const SizedBox(width: 14),
-              Text(
-                label,
-                style: AppTextStyles.bodyMedium
-                    .copyWith(color: color, fontWeight: FontWeight.w500),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: AppTextStyles.bodyMedium
+                          .copyWith(color: color, fontWeight: FontWeight.w500),
+                    ),
+                    if (subtitle != null)
+                      Text(
+                        subtitle!,
+                        style: AppTextStyles.labelSmall.copyWith(
+                          fontSize: 10,
+                          color: Colors.white.withValues(alpha: 0.4),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),

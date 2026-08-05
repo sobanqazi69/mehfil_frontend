@@ -33,7 +33,7 @@ class SeatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 76,
+      width: 92,
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
@@ -77,8 +77,8 @@ class _CinemaChair extends StatelessWidget {
     }
 
     return SizedBox(
-      width: 72,
-      height: 72,
+      width: 88,
+      height: 88,
       child: Stack(
         alignment: Alignment.center,
         clipBehavior: Clip.none,
@@ -88,15 +88,15 @@ class _CinemaChair extends StatelessWidget {
             opacity: isOccupied ? 1.0 : 0.35,
             child: Image.asset(
               chairAsset,
-              width: 72,
-              height: 72,
+              width: 88,
+              height: 88,
               fit: BoxFit.contain,
             ),
           ),
 
           // 2. Avatar/Icon overlay (positioned exactly on the backrest)
           Positioned(
-            top: 14,
+            top: 17,
             child: _avatarOrIcon(),
           ),
 
@@ -125,7 +125,7 @@ class _CinemaChair extends StatelessWidget {
   }
 
   Widget _avatarOrIcon() {
-    const double size = 26.0;
+    const double size = 33.0;
 
     if (seat.isLocked && seat.isEmpty) {
       return Container(
@@ -137,7 +137,7 @@ class _CinemaChair extends StatelessWidget {
         ),
         child: const Icon(
           Icons.lock_rounded,
-          size: 13,
+          size: 16,
           color: Colors.white38,
         ),
       );
@@ -157,7 +157,7 @@ class _CinemaChair extends StatelessWidget {
         ),
         child: const Icon(
           Icons.add_rounded,
-          size: 14,
+          size: 18,
           color: Colors.white60,
         ),
       );
@@ -217,7 +217,7 @@ class _CinemaChair extends StatelessWidget {
         style: const TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.w700,
-          fontSize: 12,
+          fontSize: 15,
         ),
       ),
     );
@@ -252,7 +252,7 @@ class _SeatLabel extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.center,
       style: AppTextStyles.labelSmall.copyWith(
-        fontSize: 10,
+        fontSize: 11,
         color: color,
         fontWeight: isMine ? FontWeight.w700 : FontWeight.w500,
       ),
@@ -268,14 +268,14 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 18,
-      height: 18,
+      width: 21,
+      height: 21,
       decoration: BoxDecoration(
         color: const Color(0xFF130E26),
         shape: BoxShape.circle,
         border: Border.all(color: color.withValues(alpha: 0.6)),
       ),
-      child: Icon(icon, size: 10, color: color),
+      child: Icon(icon, size: 12, color: color),
     );
   }
 }

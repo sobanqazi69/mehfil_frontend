@@ -387,6 +387,12 @@ class RoomCubit extends Cubit<RoomState> {
     _repo.removeFromSeat(_roomId!, seatNo);
   }
 
+  /// Host-only: close or reopen a slot.
+  void setSeatLocked(int seatNo, bool isLocked) {
+    if (_roomId == null) return;
+    _repo.setSeatLocked(_roomId!, seatNo, isLocked);
+  }
+
   void _onSeats(List<RoomSeatModel> seats) {
     if (isClosed) return;
     if (state is! RoomLoaded) return;
