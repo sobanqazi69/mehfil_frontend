@@ -7,6 +7,7 @@ import '../../../../core/utils/map_utils.dart';
 import '../models/message_model.dart';
 import '../models/room_member_model.dart';
 import '../models/room_model.dart';
+import '../models/room_seat_model.dart';
 
 class RoomRepository {
   final ApiClient _api;
@@ -104,6 +105,50 @@ class RoomRepository {
   /// Notified after every successful socket (re)connect. The server ties room
   /// membership to the socket id and drops it on `disconnecting`, so a client
   /// that reconnects has to re-join or it will never hear from the room again.
+  // ── Seats ────────────────────────────────────────────────────────────────
+
+  void takeSeat(int roomId, int seatNo) =>
+      _socket.emit('seat:take', {'roomId': roomId, 'seatNo': seatNo});
+
+  void leaveSeat(int roomId) => _socket.emit('seat:leave', {'roomId': roomId});
+
+  /// Host-only; the server re-checks.
+  void setSeatMuted(int roomId, int seatNo, bool isMuted) => _socket.emit(
+      'seat:mute', {'roomId': roomId, 'seatNo': seatNo, 'isMuted': isMuted});
+
+  /// Host-only; sends the occupant back to the audience.
+  void removeFromSeat(int roomId, int seatNo) =>
+      _socket.emit('seat:remove', {'roomId': roomId, 'seatNo': seatNo});
+
+  /// Authoritative seat list. Broadcast on every seat change.
+  void onSeats(Function(List<RoomSeatModel>) callback) {
+    _socket.on('room:seats', (data) {
+      try {
+        final payload = MapUtils.asMap(data);
+        final seats = MapUtils.asMapList(payload['seats'])
+            .map(RoomSeatModel.fromJson)
+            .toList()
+          ..sort((a, b) => a.seatNo.compareTo(b.seatNo));
+        callback(seats);
+      } catch (e) {
+        DebugLogger.error('onSeats parse error', error: e);
+      }
+    });
+  }
+
+  /// The server refused a seat (taken, locked, host-only, or lost a race).
+  void onSeatDenied(Function(String) callback) {
+    _socket.on('seat:denied', (data) {
+      try {
+        final message =
+            MapUtils.handleNullableStringKey(MapUtils.asMap(data), 'message');
+        callback(message ?? 'Could not take that seat');
+      } catch (e) {
+        DebugLogger.error('onSeatDenied parse error', error: e);
+      }
+    });
+  }
+
   void onSocketConnect(VoidCallback callback) =>
       _socket.addConnectHandler(callback);
 
@@ -227,12 +272,18 @@ class RoomRepository {
   }
 
   /// We tried to unmute while the host has us muted.
-  void onMicBlocked(Function(String message) callback) {
+  /// [reason] is `host` when the host has us muted, or `seat` when we simply
+  /// are not on a mic. They call for very different local state, so the caller
+  /// needs to be able to tell them apart.
+  void onMicBlocked(Function(String message, String? reason) callback) {
     _socket.on('mic:blocked', (data) {
       try {
-        callback(MapUtils.handleNullableStringKey(
-                MapUtils.asMap(data), 'message') ??
-            'The host has muted you');
+        final payload = MapUtils.asMap(data);
+        callback(
+          MapUtils.handleNullableStringKey(payload, 'message') ??
+              'The host has muted you',
+          MapUtils.handleNullableStringKey(payload, 'reason'),
+        );
       } catch (e) {
         DebugLogger.error('onMicBlocked parse error', error: e);
       }
@@ -270,6 +321,8 @@ class RoomRepository {
     _socket.off('room:settings_updated');
     _socket.off('room:kicked');
     _socket.off('mic:blocked');
+    _socket.off('room:seats');
+    _socket.off('seat:denied');
   }
 
   String _parseError(DioException e) {

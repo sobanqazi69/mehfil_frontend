@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import '../../data/models/message_model.dart';
 import '../../data/models/room_member_model.dart';
 import '../../data/models/room_model.dart';
+import '../../data/models/room_seat_model.dart';
 
 abstract class RoomState extends Equatable {
   const RoomState();
@@ -28,6 +29,9 @@ class RoomLoaded extends RoomState {
   final bool isMicMuted; // our own self-mute
   final bool isHostMuted; // the host muted us
 
+  /// Mic slots. Only a seated user may speak; everyone else is audience.
+  final List<RoomSeatModel> seats;
+
   const RoomLoaded({
     required this.room,
     this.members = const [],
@@ -38,7 +42,16 @@ class RoomLoaded extends RoomState {
     this.hostMutedMap = const {},
     this.isMicMuted = true,
     this.isHostMuted = false,
+    this.seats = const [],
   });
+
+  /// The seat we are sitting on, or null if we are in the audience.
+  RoomSeatModel? seatOf(int userId) {
+    for (final seat in seats) {
+      if (seat.userId == userId) return seat;
+    }
+    return null;
+  }
 
   RoomLoaded copyWith({
     RoomModel? room,
@@ -50,6 +63,7 @@ class RoomLoaded extends RoomState {
     Map<int, bool>? hostMutedMap,
     bool? isMicMuted,
     bool? isHostMuted,
+    List<RoomSeatModel>? seats,
   }) {
     return RoomLoaded(
       room: room ?? this.room,
@@ -61,13 +75,14 @@ class RoomLoaded extends RoomState {
       hostMutedMap: hostMutedMap ?? this.hostMutedMap,
       isMicMuted: isMicMuted ?? this.isMicMuted,
       isHostMuted: isHostMuted ?? this.isHostMuted,
+      seats: seats ?? this.seats,
     );
   }
 
   @override
   List<Object?> get props =>
       [room, members, messages, voiceToken, mutedMap, hostMutedMap,
-        isMicMuted, isHostMuted];
+        isMicMuted, isHostMuted, seats];
 }
 
 class RoomError extends RoomState {

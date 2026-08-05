@@ -8,6 +8,7 @@ import '../../../../core/utils/debug_logger.dart';
 import '../../../../core/utils/map_utils.dart';
 import '../../data/models/message_model.dart';
 import '../../data/models/room_member_model.dart';
+import '../../data/models/room_seat_model.dart';
 import '../../data/repositories/room_repository.dart';
 import 'room_state.dart';
 
@@ -29,10 +30,22 @@ class RoomCubit extends Cubit<RoomState> {
       : _livekit = livekit ?? LiveKitService.instance,
         super(const RoomInitial());
 
-  /// The user is audible only when neither mute applies.
+  /// The user is audible only when neither mute applies — and, once the room
+  /// has seats, only while actually sitting on one.
+  ///
+  /// The empty-seats fallback is deliberate: until the server broadcasts a seat
+  /// list, `seats` is empty and gating on it would silence everybody. Rooms
+  /// keep today's open-mic behaviour until the backend starts sending seats.
   bool get _shouldMicBeLive {
     final s = state;
-    return s is RoomLoaded && !s.isMicMuted && !s.isHostMuted;
+    if (s is! RoomLoaded) return false;
+    if (s.isMicMuted || s.isHostMuted) return false;
+    if (s.seats.isEmpty) return true;
+
+    final me = _userId;
+    if (me == null) return false;
+    final seat = s.seatOf(me);
+    return seat != null && !seat.isMuted;
   }
 
   Future<void> enterRoom(int roomId, int userId) async {
@@ -155,6 +168,18 @@ class RoomCubit extends Cubit<RoomState> {
     _repo.onSettingsUpdated(_onSettingsUpdated);
     _repo.onKicked(_onKicked);
     _repo.onMicBlocked(_onMicBlocked);
+    _repo.onSeats(_onSeats);
+    _repo.onSeatDenied(_onSeatDenied);
+  }
+
+  /// Set by the room screen to surface a snackbar when a seat is refused.
+  void Function(String message)? seatDenied;
+
+  void _onSeatDenied(String message) {
+    if (isClosed) return;
+    // The authoritative `room:seats` follows immediately and undoes whatever we
+    // showed optimistically, so there is nothing to roll back here.
+    seatDenied?.call(message);
   }
 
   void _onMembers(List<RoomMemberModel> members, int? hostId) {
@@ -205,13 +230,21 @@ class RoomCubit extends Cubit<RoomState> {
     }
   }
 
-  /// We tried to unmute while host-muted; the server refused.
-  void _onMicBlocked(String message) {
+  /// The server refused our unmute — either the host has us muted, or we are
+  /// not on a seat.
+  void _onMicBlocked(String message, String? reason) {
     if (isClosed) return;
     if (state is RoomLoaded) {
       final s = state as RoomLoaded;
       // Snap the button back — our optimistic unmute never took effect.
-      emit(s.copyWith(isMicMuted: true, isHostMuted: true));
+      //
+      // Only a host-mute sets isHostMuted. Marking an unseated user as
+      // host-muted would leave them looking moderated even after they sit
+      // down, with no way to clear it.
+      emit(s.copyWith(
+        isMicMuted: true,
+        isHostMuted: reason == 'seat' ? s.isHostMuted : true,
+      ));
       _syncMic();
     }
     micBlocked?.call(message);
@@ -286,6 +319,110 @@ class RoomCubit extends Cubit<RoomState> {
       _syncMic();
     }
   }
+
+  // ── Seats ────────────────────────────────────────────────────────────────
+  //
+  // The server is the source of truth: every action emits and the authoritative
+  // `room:seats` broadcast comes back. Each one also updates locally first so
+  // the tap feels instant — a correcting broadcast just overwrites it.
+
+  void takeSeat(int seatNo) {
+    if (_roomId == null || state is! RoomLoaded) return;
+    final s = state as RoomLoaded;
+    final me = _userId;
+    if (me == null) return;
+
+    final target = _seatAt(s.seats, seatNo);
+    if (target != null && (target.isOccupied || target.isLocked)) return;
+
+    _repo.takeSeat(_roomId!, seatNo);
+
+    final myName = _meIn(s.members)?.name;
+    final myAvatar = _meIn(s.members)?.avatar;
+    final next = _withSeats(s.seats, (seats) {
+      // Vacate whatever we were on: one person, one seat.
+      for (var i = 0; i < seats.length; i++) {
+        if (seats[i].userId == me) seats[i] = seats[i].copyWith(clearUser: true);
+      }
+      final idx = seats.indexWhere((x) => x.seatNo == seatNo);
+      if (idx >= 0) {
+        seats[idx] = seats[idx]
+            .copyWith(userId: me, name: myName, avatar: myAvatar, isMuted: false);
+      }
+    });
+
+    if (!isClosed) emit(s.copyWith(seats: next));
+    _syncMic();
+  }
+
+  void leaveSeat() {
+    if (_roomId == null || state is! RoomLoaded) return;
+    final s = state as RoomLoaded;
+    final me = _userId;
+    if (me == null) return;
+
+    _repo.leaveSeat(_roomId!);
+
+    final next = _withSeats(s.seats, (seats) {
+      for (var i = 0; i < seats.length; i++) {
+        if (seats[i].userId == me) seats[i] = seats[i].copyWith(clearUser: true);
+      }
+    });
+
+    // Stepping down silences us immediately — never keep publishing from the
+    // audience just because the broadcast has not landed yet.
+    if (!isClosed) emit(s.copyWith(seats: next, isMicMuted: true));
+    _syncMic();
+  }
+
+  /// Host-only. The server re-checks that we are the host.
+  void setSeatMuted(int seatNo, bool isMuted) {
+    if (_roomId == null) return;
+    _repo.setSeatMuted(_roomId!, seatNo, isMuted);
+  }
+
+  /// Host-only: send whoever is on [seatNo] back to the audience.
+  void removeFromSeat(int seatNo) {
+    if (_roomId == null) return;
+    _repo.removeFromSeat(_roomId!, seatNo);
+  }
+
+  void _onSeats(List<RoomSeatModel> seats) {
+    if (isClosed) return;
+    if (state is! RoomLoaded) return;
+    final s = state as RoomLoaded;
+    emit(s.copyWith(seats: seats));
+    // Losing a seat has to take the mic with it.
+    _syncMic();
+  }
+
+  RoomSeatModel? _seatAt(List<RoomSeatModel> seats, int seatNo) {
+    for (final s in seats) {
+      if (s.seatNo == seatNo) return s;
+    }
+    return null;
+  }
+
+  RoomMemberModel? _meIn(List<RoomMemberModel> members) {
+    for (final m in members) {
+      if (m.userId == _userId) return m;
+    }
+    return null;
+  }
+
+  /// Copy-on-write helper so optimistic edits never mutate the emitted state.
+  List<RoomSeatModel> _withSeats(
+    List<RoomSeatModel> current,
+    void Function(List<RoomSeatModel> seats) mutate,
+  ) {
+    final seats = current.isEmpty
+        ? [for (var i = 0; i < _defaultSeatCount; i++) RoomSeatModel.vacant(i)]
+        : List<RoomSeatModel>.from(current);
+    mutate(seats);
+    return seats;
+  }
+
+  static const _defaultSeatCount = 5;
 
   void muteAll() {
     if (_roomId == null) return;

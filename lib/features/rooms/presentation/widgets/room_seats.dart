@@ -1,0 +1,321 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../config/theme/app_text_styles.dart';
+import '../../data/models/room_seat_model.dart';
+import '../cubits/room_cubit.dart';
+import '../cubits/room_state.dart';
+import 'seat_tile.dart';
+
+/// The mic strip under the video: a fixed row of seats, only whose occupants
+/// may speak. Everyone else is in the audience and can still watch and chat.
+///
+/// Mirrors the seat model in Bazmi — seat 0 is the host's.
+class RoomSeats extends StatelessWidget {
+  /// Matches Bazmi's `Room.maxSeats` default. Until the server sends a real
+  /// seat list we still draw this many empty slots so the row never collapses.
+  static const int defaultSeatCount = 5;
+
+  final int currentUserId;
+  const RoomSeats({super.key, required this.currentUserId});
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<RoomCubit, RoomState>(
+      buildWhen: (_, curr) => curr is RoomLoaded,
+      builder: (context, state) {
+        if (state is! RoomLoaded) return const SizedBox.shrink();
+
+        final seats = _padded(state.seats);
+        final isHost = state.room.hostId == currentUserId;
+        final mySeatNo = seats
+            .where((s) => s.userId == currentUserId)
+            .map((s) => s.seatNo)
+            .firstOrNull;
+
+        // Group seats into rows dynamically for theater seating map layout
+        final List<List<RoomSeatModel>> rows = [];
+        if (seats.length <= 4) {
+          rows.add(seats);
+        } else if (seats.length == 5) {
+          rows.add(seats.sublist(0, 2));
+          rows.add(seats.sublist(2));
+        } else if (seats.length <= 8) {
+          rows.add(seats.sublist(0, 3));
+          rows.add(seats.sublist(3));
+        } else {
+          rows.add(seats.sublist(0, 3));
+          rows.add(seats.sublist(3, 7));
+          rows.add(seats.sublist(7));
+        }
+
+        return Container(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0C0820).withValues(alpha: 0.35),
+            border: Border(
+              bottom: BorderSide(
+                color: const Color(0xFFFBBF24).withValues(alpha: 0.08),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Cinema Screen stage glow effect
+              Container(
+                height: 24,
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(0, -1.2),
+                    radius: 1.5,
+                    colors: [
+                      const Color(0xFF0EA5E9).withValues(alpha: 0.22),
+                      const Color(0xFF6366F1).withValues(alpha: 0.04),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                child: Center(
+                  child: Container(
+                    width: 160,
+                    height: 2.5,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0EA5E9).withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF0EA5E9).withValues(alpha: 0.6),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // The speaking levels bound builder
+              ValueListenableBuilder<Map<String, double>>(
+                valueListenable: context.read<RoomCubit>().speakingLevels,
+                builder: (_, levels, __) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (int rowIndex = 0;
+                          rowIndex < rows.length;
+                          rowIndex++) ...[
+                        if (rowIndex > 0) const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            for (int i = 0; i < rows[rowIndex].length; i++) ...[
+                              if (i > 0) const SizedBox(width: 8),
+                              Builder(
+                                builder: (context) {
+                                  final seat = rows[rowIndex][i];
+                                  final rowSize = rows[rowIndex].length;
+                                  // Subtle curve: outer seats in the row are placed 4px higher
+                                  final double curveOffset = rowSize > 1
+                                      ? (i - (rowSize - 1) / 2.0).abs() * 4.0
+                                      : 0.0;
+                                  return Padding(
+                                    padding: EdgeInsets.only(top: curveOffset),
+                                    child: SeatTile(
+                                      seat: seat,
+                                      isMine: seat.userId == currentUserId,
+                                      isSpeaking:
+                                          (levels['${seat.userId}'] ?? 0) >
+                                                  0.05 &&
+                                              !seat.isMuted,
+                                      onTap: () => _onSeatTap(
+                                        context,
+                                        seat: seat,
+                                        isHost: isHost,
+                                        mySeatNo: mySeatNo,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
+
+              if (mySeatNo == null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Tap an empty velvet chair to take a seat',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    fontSize: 10,
+                    color: Colors.white.withValues(alpha: 0.35),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// The server is the source of truth, but it may send fewer entries than the
+  /// room has slots (or nothing at all yet). Pad so the row is always stable.
+  List<RoomSeatModel> _padded(List<RoomSeatModel> seats) {
+    final count =
+        seats.isEmpty ? defaultSeatCount : (seats.length).clamp(1, 12);
+    final byNo = {for (final s in seats) s.seatNo: s};
+    return [
+      for (var i = 0; i < count; i++) byNo[i] ?? RoomSeatModel.vacant(i),
+    ];
+  }
+
+  void _onSeatTap(
+    BuildContext context, {
+    required RoomSeatModel seat,
+    required bool isHost,
+    required int? mySeatNo,
+  }) {
+    final cubit = context.read<RoomCubit>();
+
+    // Our own seat: step down.
+    if (seat.userId == currentUserId) {
+      cubit.leaveSeat();
+      return;
+    }
+
+    // Someone else is sitting here. Only the host has anything to do.
+    if (seat.isOccupied) {
+      if (isHost) showSeatHostActions(context, seat);
+      return;
+    }
+
+    if (seat.isLocked) return;
+
+    // Only the host may take the host seat.
+    if (seat.isHostSeat && !isHost) return;
+
+    cubit.takeSeat(seat.seatNo);
+  }
+}
+
+/// Host-only actions on another user's seat. Declared here rather than in its
+/// own file because it exists solely as this row's tap target.
+Future<void> showSeatHostActions(BuildContext context, RoomSeatModel seat) {
+  final cubit = context.read<RoomCubit>();
+
+  return showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.5),
+    builder: (_) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF130E26),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: const Color(0xFFFBBF24).withValues(alpha: 0.15),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.event_seat_rounded,
+                        size: 17, color: Color(0xFFFBBF24)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        seat.name ?? 'Seat ${seat.seatNo + 1}',
+                        style: AppTextStyles.heading3.copyWith(
+                          fontSize: 15,
+                          color: const Color(0xFFFBBF24),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                height: 1,
+                color: const Color(0xFFFBBF24).withValues(alpha: 0.12),
+              ),
+              _SeatAction(
+                icon: seat.isMuted ? Icons.mic_rounded : Icons.mic_off_rounded,
+                label: seat.isMuted ? 'Unmute on seat' : 'Mute on seat',
+                color: seat.isMuted
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFFEF4444),
+                onTap: () {
+                  cubit.setSeatMuted(seat.seatNo, !seat.isMuted);
+                  Navigator.pop(context);
+                },
+              ),
+              _SeatAction(
+                icon: Icons.logout_rounded,
+                label: 'Remove from seat',
+                color: const Color(0xFFEF4444),
+                onTap: () {
+                  cubit.removeFromSeat(seat.seatNo);
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _SeatAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SeatAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          child: Row(
+            children: [
+              Icon(icon, size: 19, color: color),
+              const SizedBox(width: 14),
+              Text(
+                label,
+                style: AppTextStyles.bodyMedium
+                    .copyWith(color: color, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

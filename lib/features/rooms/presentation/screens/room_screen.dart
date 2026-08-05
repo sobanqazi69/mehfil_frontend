@@ -1,3 +1,4 @@
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -17,9 +18,9 @@ import '../cubits/room_state.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/listeners_drawer.dart';
 import '../widgets/mic_fab.dart';
+import '../widgets/room_seats.dart';
 import '../widgets/room_settings_sheet.dart';
 import '../widgets/room_video_player.dart';
-import '../widgets/unmuted_avatars.dart';
 import '../widgets/volume_sheet.dart';
 import 'youtube_picker_screen.dart';
 
@@ -52,6 +53,9 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
     final cubit = context.read<RoomCubit>();
     cubit.micBlocked = (message) {
       if (mounted) AppSnackbar.error(context, message);
+    };
+    cubit.seatDenied = (message) {
+      if (mounted) AppSnackbar.info(context, message);
     };
 
     final authState = context.read<AuthCubit>().state;
@@ -248,7 +252,10 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
                       },
                     ),
 
-                    // 3. Optimized Chat List
+                    // 3. Mic seats — only their occupants can speak.
+                    RoomSeats(currentUserId: currentUserId),
+
+                    // 4. Optimized Chat List
                     Expanded(
                       child: BlocSelector<RoomCubit, RoomState, _ChatData>(
                         selector: (s) => (s is RoomLoaded)
@@ -326,52 +333,62 @@ class _RoomHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
-    return Container(
-      padding: EdgeInsets.fromLTRB(10, top + 8, 10, 10),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0x14FBBF24), // 8% gold glow
-            Colors.transparent,
-          ],
-        ),
-        border: Border(
-          bottom: BorderSide(color: Color(0x1AFBBF24)), // 10% gold border
-        ),
-      ),
-      child: Row(
-        children: [
-          _HeaderAction(
-            icon: Icons.close_rounded,
-            color: AppColors.error,
-            filled: true,
-            onTap: onLeave,
-          ),
-          const SizedBox(width: 8),
-          // Speaking / unmuted users live where the title used to be.
-          const Expanded(child: UnmutedAvatars()),
-          const SizedBox(width: 8),
-          _VolumeHeaderAction(onTap: onOpenVolume),
-          if (onOpenSettings != null)
-            _HeaderAction(
-              icon: Icons.tune_rounded,
-              color: const Color(0xFFFBBF24),
-              onTap: onOpenSettings!,
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(10, top + 8, 10, 10),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.35),
+            border: const Border(
+              bottom: BorderSide(color: Colors.white10, width: 0.8),
             ),
-          if (isHost && onToggleQueue != null)
-            _HeaderAction(
-              icon: Icons.playlist_add_rounded,
-              color: const Color(0xFF00FFB2),
-              onTap: onToggleQueue!,
-            ),
-          _HeaderAction(
-            icon: Icons.people_alt_rounded,
-            color: const Color(0xFFFBBF24),
-            onTap: onOpenListeners,
           ),
-        ],
+          child: Row(
+            children: [
+              _HeaderAction(
+                icon: Icons.close_rounded,
+                color: AppColors.error,
+                filled: true,
+                onTap: onLeave,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    room.name.isEmpty ? 'Untitled room' : room.name,
+                    style: AppTextStyles.heading3.copyWith(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              _VolumeHeaderAction(onTap: onOpenVolume),
+              if (onOpenSettings != null)
+                _HeaderAction(
+                  icon: Icons.tune_rounded,
+                  color: const Color(0xFFFBBF24),
+                  onTap: onOpenSettings!,
+                ),
+              if (isHost && onToggleQueue != null)
+                _HeaderAction(
+                  icon: Icons.playlist_add_rounded,
+                  color: const Color(0xFF00FFB2),
+                  onTap: onToggleQueue!,
+                ),
+              _HeaderAction(
+                icon: Icons.people_alt_rounded,
+                color: const Color(0xFFFBBF24),
+                onTap: onOpenListeners,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -467,74 +484,77 @@ class _ChatBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
-    return Container(
-      padding: EdgeInsets.fromLTRB(12, 10, 12, 10 + (bottom > 0 ? bottom : 10)),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0x1AFBBF24))), // gold border top
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          MicFab(
-            isMuted: isMicMuted,
-            isHostMuted: isHostMuted,
-            onToggle: onMicToggle,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF130E26), // Dark input background
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0x22FBBF24)), // gold/glass border
-              ),
-              child: TextField(
-                controller: ctrl,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-                cursorColor: const Color(0xFFFBBF24), // gold cursor
-                decoration: InputDecoration(
-                  hintText: 'Say something…',
-                  hintStyle: TextStyle(
-                      color: const Color(0xFFFBBF24).withValues(alpha: 0.45),
-                      fontSize: 14),
-                  filled: false,
-                  fillColor: Colors.transparent,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-                onSubmitted: (_) => onSend(),
-              ),
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(12, 10, 12, 10 + (bottom > 0 ? bottom : 10)),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.35),
+            border: const Border(
+              top: BorderSide(color: Colors.white10, width: 0.8),
             ),
           ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: onSend,
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFBBF24), Color(0xFFD97706)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFD97706).withValues(alpha: 0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 3),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              MicFab(
+                isMuted: isMicMuted,
+                isHostMuted: isHostMuted,
+                onToggle: onMicToggle,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.white24, width: 1.0),
                   ),
-                ],
+                  child: TextField(
+                    controller: ctrl,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    cursorColor: AppColors.cyan,
+                    decoration: InputDecoration(
+                      hintText: 'Say something…',
+                      hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.35),
+                          fontSize: 14),
+                      filled: false,
+                      fillColor: Colors.transparent,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    onSubmitted: (_) => onSend(),
+                  ),
+                ),
               ),
-              child:
-                  const Icon(Icons.send_rounded, color: Colors.black, size: 18), // black icon on gold button
-            ),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: onSend,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.cyan.withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -552,27 +572,42 @@ class _EmptyChat extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: 86,
+            height: 86,
             decoration: BoxDecoration(
-              color: AppColors.purple.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-              border:
-                  Border.all(color: AppColors.purple.withValues(alpha: 0.2)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
             ),
-            child: Icon(
-              Icons.chat_bubble_outline_rounded,
-              size: 30,
-              color: AppColors.purple.withValues(alpha: 0.5),
+            child: Image.asset(
+              'assets/images/chat_icon_3d.png',
+              width: 86,
+              height: 86,
+              fit: BoxFit.contain,
             ),
           ),
-          const SizedBox(height: 14),
-          Text('No messages yet',
-              style: AppTextStyles.bodyMedium.copyWith(color: Colors.white)),
-          const SizedBox(height: 4),
-          Text('Start the conversation!',
-              style: AppTextStyles.bodySmall
-                  .copyWith(color: Colors.white.withValues(alpha: 0.5))),
+          const SizedBox(height: 16),
+          Text(
+            'No messages yet',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Start the conversation!',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: Colors.white.withValues(alpha: 0.45),
+              fontSize: 13,
+            ),
+          ),
         ],
       ),
     );
