@@ -123,15 +123,26 @@ class RoomSeats extends StatelessWidget {
                                   final double curveOffset = rowSize > 1
                                       ? (i - (rowSize - 1) / 2.0).abs() * 4.0
                                       : 0.0;
+                                  // Three independent ways to be silent, and
+                                  // the chair has to show all of them: the
+                                  // host muted the seat, the host muted the
+                                  // person, or they muted themselves.
+                                  final uid = seat.userId;
+                                  final muted = uid != null &&
+                                      (seat.isMuted ||
+                                          (state.hostMutedMap[uid] ?? false) ||
+                                          (state.mutedMap[uid] ?? false));
+
                                   return Padding(
                                     padding: EdgeInsets.only(top: curveOffset),
                                     child: SeatTile(
                                       seat: seat,
                                       isMine: seat.userId == currentUserId,
+                                      isMuted: muted,
                                       isSpeaking:
                                           (levels['${seat.userId}'] ?? 0) >
                                                   0.05 &&
-                                              !seat.isMuted,
+                                              !muted,
                                       reaction: reactions[seat.seatNo]?.emoji,
                                       reactionId: reactions[seat.seatNo]?.id,
                                       onTap: () => _onSeatTap(

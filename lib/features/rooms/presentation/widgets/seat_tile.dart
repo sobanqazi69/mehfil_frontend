@@ -20,6 +20,11 @@ class SeatTile extends StatelessWidget {
   /// Driven by LiveKit's active-speaker levels.
   final bool isSpeaking;
 
+  /// Effective silence, from any cause: the host muted the seat, the host
+  /// muted the person, or they muted themselves. `seat.isMuted` alone only
+  /// covers the first, which is why a self-muted speaker showed no badge.
+  final bool isMuted;
+
   /// Emoji floating over this chair right now, if any.
   final String? reaction;
 
@@ -33,6 +38,7 @@ class SeatTile extends StatelessWidget {
     required this.seat,
     this.isMine = false,
     this.isSpeaking = false,
+    this.isMuted = false,
     this.reaction,
     this.reactionId,
     this.onTap,
@@ -53,7 +59,11 @@ class SeatTile extends StatelessWidget {
               alignment: Alignment.topCenter,
               children: [
                 _CinemaChair(
-                    seat: seat, isMine: isMine, isSpeaking: isSpeaking),
+                  seat: seat,
+                  isMine: isMine,
+                  isSpeaking: isSpeaking,
+                  isMuted: isMuted,
+                ),
                 if (reaction != null)
                   Positioned(
                     // Above the chair, overflowing the tile — the row's
@@ -123,11 +133,13 @@ class _CinemaChair extends StatelessWidget {
   final RoomSeatModel seat;
   final bool isMine;
   final bool isSpeaking;
+  final bool isMuted;
 
   const _CinemaChair({
     required this.seat,
     required this.isMine,
     required this.isSpeaking,
+    required this.isMuted,
   });
 
   @override
@@ -171,7 +183,7 @@ class _CinemaChair extends StatelessWidget {
 
           // 3. Status Badges — the gold chair already marks the host, so a
           // crown on top of it was only adding clutter.
-          if (isOccupied && seat.isMuted)
+          if (isOccupied && isMuted)
             const Positioned(
               right: 2,
               bottom: 8,

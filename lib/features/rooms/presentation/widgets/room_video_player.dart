@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../../config/theme/app_colors.dart';
@@ -45,11 +47,42 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
   /// any level chosen before that has to be replayed once it is.
   bool _volumePending = false;
 
+  /// Same problem, for playback: a play/seek issued before the webview is
+  /// ready is dropped on the floor.
+  bool _remoteSyncPending = false;
+
+  /// When the last broadcast landed, so we can extrapolate from it.
+  DateTime? _lastStateAt;
+
+  /// Listener-side reconcile tick. The host only broadcasts every couple of
+  /// seconds, and a listener that stalls between broadcasts has to notice on
+  /// its own rather than waiting for the next one.
+  Timer? _reconcileTimer;
+
+  /// How far out of step a listener may drift before being seeked. Tight
+  /// enough that nobody notices, loose enough not to fight normal jitter.
+  static const double _driftToleranceSec = 1.0;
+
+  /// How often the host re-anchors everyone. Was 10s, which let listeners
+  /// wander for most of that window; a tiny socket message every 2s costs
+  /// nothing next to the video itself.
+  static const Duration _heartbeatInterval = Duration(seconds: 2);
+
   @override
   void initState() {
     super.initState();
     VolumeService.instance.videoVolume.addListener(_applyVideoVolume);
     if (widget.youtubeId != null) _initPlayer(widget.youtubeId!);
+    _lastStateAt = DateTime.now();
+    if (!widget.isHost) _startReconcileTimer();
+  }
+
+  void _startReconcileTimer() {
+    _reconcileTimer?.cancel();
+    _reconcileTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _applyRemoteState(),
+    );
   }
 
   void _applyVideoVolume() {
@@ -95,8 +128,11 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
   /// catch the moment the player becomes ready.
   void _onPlayerReady() {
     final yt = _yt;
-    if (yt == null || !_volumePending || !yt.value.isReady) return;
-    _applyVideoVolume();
+    if (yt == null || !yt.value.isReady) return;
+    if (_volumePending) _applyVideoVolume();
+    // Whatever the room was doing while we were still loading gets applied
+    // the instant we can act on it.
+    if (_remoteSyncPending) _applyRemoteState();
   }
 
   @override
@@ -142,27 +178,67 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
 
     if (_yt == null) return;
 
-    // Listeners synchronization
     if (!widget.isHost) {
-      // Sync play/pause
-      if (widget.isPlaying != old.isPlaying) {
-        if (widget.isPlaying) {
-          _yt?.play();
-        } else {
-          _yt?.pause();
-        }
+      // A fresh broadcast: restart the clock we extrapolate the host's
+      // position from.
+      if (widget.timestampSec != old.timestampSec ||
+          widget.isPlaying != old.isPlaying) {
+        _lastStateAt = DateTime.now();
       }
-
-      // Sync position if it drifts by more than 3 seconds (Rave-style threshold)
-      final currentPos = _yt?.value.position.inSeconds.toDouble() ?? 0;
-      if ((widget.timestampSec - currentPos).abs() > 3) {
-        _yt?.seekTo(Duration(seconds: widget.timestampSec.toInt()));
-      }
+      _applyRemoteState();
     } else {
       final playerIsPlaying = _yt?.value.isPlaying ?? false;
       if (widget.isPlaying != old.isPlaying && widget.isPlaying != playerIsPlaying) {
         widget.isPlaying ? _yt?.play() : _yt?.pause();
       }
+    }
+  }
+
+  /// Where the host should be *right now*.
+  ///
+  /// A broadcast is a snapshot that goes stale the moment it lands, so we keep
+  /// advancing it by real elapsed time. Reconciling against the raw broadcast
+  /// value would drag listeners backwards every time we checked.
+  double get _expectedPosition {
+    final at = _lastStateAt;
+    if (!widget.isPlaying || at == null) return widget.timestampSec;
+    final elapsed = DateTime.now().difference(at).inMilliseconds / 1000.0;
+    return widget.timestampSec + elapsed;
+  }
+
+  /// Force the player to match the room.
+  ///
+  /// Compares against what the player is ACTUALLY doing rather than against
+  /// the previous widget. That difference is the whole bug behind "it never
+  /// started for them": if a listener stalled on a buffer, the host keeps
+  /// broadcasting isPlaying: true, nothing ever *changes*, and the old
+  /// change-detecting code therefore never told the player to resume.
+  void _applyRemoteState() {
+    final yt = _yt;
+    if (yt == null || widget.isHost) return;
+
+    // Commands are silently dropped before the webview is ready. Replay once
+    // it is, instead of losing the play that was meant to start the party.
+    if (!yt.value.isReady) {
+      _remoteSyncPending = true;
+      return;
+    }
+    _remoteSyncPending = false;
+
+    final target = _expectedPosition;
+    final actual = yt.value.position.inMilliseconds / 1000.0;
+
+    if ((target - actual).abs() > _driftToleranceSec) {
+      yt.seekTo(Duration(milliseconds: (target * 1000).round()));
+      // seekTo() auto-plays in this package, so a paused room needs it undone.
+      if (!widget.isPlaying) yt.pause();
+      return;
+    }
+
+    if (widget.isPlaying && !yt.value.isPlaying) {
+      yt.play();
+    } else if (!widget.isPlaying && yt.value.isPlaying) {
+      yt.pause();
     }
   }
 
@@ -201,29 +277,33 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
 
     final state = _yt!.value;
     final isPlaying = state.isPlaying;
-    final position = state.position.inSeconds.toDouble();
+    // Milliseconds, not whole seconds. Truncating to inSeconds baked a
+    // half-second of error into every broadcast before it even left the phone.
+    final position = state.position.inMilliseconds / 1000.0;
 
-    // Prevent excessive sync events. Sync if:
+    // Sync if:
     // 1. Playing state changed (INSTANT)
-    // 2. Position changed significantly (e.g. a seek) (INSTANT)
-    // 3. Periodic sync to keep everyone aligned (THROTTLED to 10s)
+    // 2. The position jumped — a seek (INSTANT)
+    // 3. Otherwise a heartbeat, so listeners can re-anchor their extrapolation
     bool shouldSync = false;
     final now = DateTime.now();
 
+    final sinceLastSync = _lastSyncRealTime == null
+        ? const Duration(days: 1)
+        : now.difference(_lastSyncRealTime!);
+
+    // How far the position moved beyond what plain playback explains. Real
+    // playback advances ~1s per 1s elapsed, so anything well beyond that is a
+    // seek and must go out immediately.
+    final expected = sinceLastSync.inMilliseconds / 1000.0;
+    final unexplained = (position - _lastSyncTimestamp - expected).abs();
+
     if (isPlaying != _lastSyncIsPlaying) {
       shouldSync = true;
-    } else if ((position - _lastSyncTimestamp).abs() > 2) {
-      // If the difference is > 2s, it's likely a SEEK (Instant sync)
-      // or we haven't synced in a while.
-      
-      // Throttle periodic syncs to every 10 seconds to save resources
-      final timeSinceLastSync = _lastSyncRealTime != null 
-          ? now.difference(_lastSyncRealTime!).inSeconds 
-          : 999;
-
-      if (timeSinceLastSync >= 10 || (position - _lastSyncTimestamp).abs() > 5) {
-        shouldSync = true;
-      }
+    } else if (unexplained > 1.0) {
+      shouldSync = true; // seek
+    } else if (sinceLastSync >= _heartbeatInterval) {
+      shouldSync = true; // keep everyone anchored
     }
 
     if (shouldSync) {
@@ -237,6 +317,7 @@ class _RoomVideoPlayerState extends State<RoomVideoPlayer> {
   @override
   void dispose() {
     VolumeService.instance.videoVolume.removeListener(_applyVideoVolume);
+    _reconcileTimer?.cancel();
     _disposePlayer();
     _urlCtrl.dispose();
     super.dispose();

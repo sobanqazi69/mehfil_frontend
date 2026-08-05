@@ -18,7 +18,6 @@ import '../cubits/room_state.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/emoji_picker_sheet.dart';
 import '../widgets/listeners_drawer.dart';
-import '../widgets/mic_fab.dart';
 import '../widgets/room_seats.dart';
 import '../widgets/room_settings_sheet.dart';
 import '../widgets/room_video_player.dart';
@@ -199,6 +198,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
         final authState = context.watch<AuthCubit>().state;
         final currentUserId =
             authState is AuthAuthenticated ? authState.user.id : 0;
+        final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
         if (state is RoomLoading || state is RoomInitial) {
           return _LoadingScaffold(onBack: _leave);
@@ -282,7 +282,14 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
                     ),
 
                     // 3. Mic seats — only their occupants can speak.
-                    RoomSeats(currentUserId: currentUserId),
+                    //
+                    // Folded away while the keyboard is up. The header, video
+                    // and seats are all fixed height; with ~350px of screen
+                    // gone the Expanded chat below has nothing left to give
+                    // and the column overflows. Seats are also the least
+                    // useful thing on screen while you are typing.
+                    if (!isKeyboardOpen)
+                      RoomSeats(currentUserId: currentUserId),
 
                     // 4. Optimized Chat List
                     Expanded(
@@ -313,13 +320,18 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
                     // 5. Optimized Chat Bar
                     BlocSelector<RoomCubit, RoomState, _MicData>(
                       selector: (s) => (s is RoomLoaded)
-                          ? _MicData(s.isMicMuted, s.isHostMuted)
-                          : const _MicData(true, false),
+                          ? _MicData(
+                              s.isMicMuted,
+                              s.isHostMuted,
+                              s.seatOf(currentUserId) != null,
+                            )
+                          : const _MicData(true, false, false),
                       builder: (context, mic) {
                         return _ChatBar(
                           ctrl: _chatCtrl,
                           isMicMuted: mic.isMicMuted,
                           isHostMuted: mic.isHostMuted,
+                          isSeated: mic.isSeated,
                           onSend: _sendMessage,
                           onEmoji: () => _openEmojiPicker(currentUserId),
                           onMicToggle: () => context
@@ -496,35 +508,11 @@ class _HeaderAction extends StatelessWidget {
 
 // ── Participants ──────────────────────────────────────────────────────────
 
-class _EmojiButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _EmojiButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: const Color(0xFFFBBF24).withValues(alpha: 0.12),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: const Color(0xFFFBBF24).withValues(alpha: 0.30),
-          ),
-        ),
-        child: const Icon(Icons.emoji_emotions_rounded,
-            color: Color(0xFFFBBF24), size: 20),
-      ),
-    );
-  }
-}
-
 class _ChatBar extends StatelessWidget {
   final TextEditingController ctrl;
   final bool isMicMuted;
   final bool isHostMuted;
+  final bool isSeated;
   final VoidCallback onSend;
   final VoidCallback onEmoji;
   final VoidCallback onMicToggle;
@@ -533,6 +521,7 @@ class _ChatBar extends StatelessWidget {
     required this.ctrl,
     required this.isMicMuted,
     required this.isHostMuted,
+    required this.isSeated,
     required this.onSend,
     required this.onEmoji,
     required this.onMicToggle,
@@ -540,80 +529,138 @@ class _ChatBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          padding: EdgeInsets.fromLTRB(12, 10, 12, 10 + (bottom > 0 ? bottom : 10)),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.35),
-            border: const Border(
-              top: BorderSide(color: Colors.white10, width: 0.8),
+    // No viewInsets maths here. Scaffold already lifts the body clear of the
+    // keyboard, so adding the inset again reserved the keyboard height twice
+    // and pushed the column past the bottom of the screen. SafeArea handles
+    // the gesture bar, and collapses to zero on its own once the keyboard is
+    // covering it.
+    //
+    // Bazmi's room bar: no panel, no border, no blur. The bar floats over the
+    // room and the weight sits entirely in the input pill, which is what makes
+    // it read as sleek rather than as a toolbar bolted to the bottom.
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+        child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Container(
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: ctrl,
+                      style:
+                          const TextStyle(color: Colors.white, fontSize: 14),
+                      cursorColor: AppColors.cyan,
+                      textAlignVertical: TextAlignVertical.center,
+                      decoration: InputDecoration(
+                        isCollapsed: true,
+                        hintText: 'Say something…',
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.38),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        filled: false,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.fromLTRB(18, 12, 8, 12),
+                      ),
+                      onSubmitted: (_) => onSend(),
+                    ),
+                  ),
+                  // Send lives inside the pill, appearing only once there is
+                  // something to send. As a sibling of the field (not a
+                  // suffixIcon) the text is bounded by it and can never run
+                  // underneath.
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: ctrl,
+                    builder: (_, value, __) {
+                      final hasText = value.text.trim().isNotEmpty;
+                      return AnimatedSize(
+                        duration: const Duration(milliseconds: 160),
+                        curve: Curves.easeOut,
+                        child: hasText
+                            ? _BarIcon(
+                                icon: Icons.send_rounded,
+                                color: AppColors.cyan,
+                                onTap: onSend,
+                                iconSize: 21,
+                                width: 40,
+                              )
+                            : const SizedBox(height: 44),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              MicFab(
-                isMuted: isMicMuted,
-                isHostMuted: isHostMuted,
-                onToggle: onMicToggle,
-              ),
-              const SizedBox(width: 8),
-              _EmojiButton(onTap: onEmoji),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white24, width: 1.0),
-                  ),
-                  child: TextField(
-                    controller: ctrl,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    cursorColor: AppColors.cyan,
-                    decoration: InputDecoration(
-                      hintText: 'Say something…',
-                      hintStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.35),
-                          fontSize: 14),
-                      filled: false,
-                      fillColor: Colors.transparent,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    onSubmitted: (_) => onSend(),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              GestureDetector(
-                onTap: onSend,
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.cyan.withValues(alpha: 0.4),
-                        blurRadius: 12,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
-                ),
-              ),
-            ],
+          const SizedBox(width: 12),
+          _BarIcon(
+            icon: Icons.sentiment_satisfied_rounded,
+            color: Colors.white,
+            onTap: onEmoji,
           ),
+          // Audience has no mic to toggle — the seat is what grants it, so the
+          // button only exists while sitting on one.
+          if (isSeated) ...[
+            const SizedBox(width: 12),
+            _BarIcon(
+              // A host mute outranks our own setting, and reads as blocked
+              // rather than merely off.
+              icon: isMicMuted || isHostMuted
+                  ? Icons.mic_off_rounded
+                  : Icons.mic_rounded,
+              color: isHostMuted
+                  ? AppColors.error
+                  : (isMicMuted ? Colors.white : AppColors.cyan),
+              onTap: onMicToggle,
+            ),
+          ],
+          ],
         ),
+      ),
+    );
+  }
+}
+
+/// Flat, borderless action in the chat bar. Bazmi uses bare icons here rather
+/// than circular chips — the chips are what made this bar look heavy.
+class _BarIcon extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final double iconSize;
+  final double width;
+
+  const _BarIcon({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    this.iconSize = 28,
+    this.width = 34,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      // Icon stays visually small; the box keeps the tap target finger-sized.
+      child: SizedBox(
+        width: width,
+        height: 44,
+        child: Icon(icon, color: color, size: iconSize),
       ),
     );
   }
@@ -880,16 +927,21 @@ class _MicData {
   final bool isMicMuted;
   final bool isHostMuted;
 
-  const _MicData(this.isMicMuted, this.isHostMuted);
+  /// Only a seated user gets a mic button — the audience has nothing to toggle.
+  final bool isSeated;
+
+  const _MicData(this.isMicMuted, this.isHostMuted, this.isSeated);
 
   @override
   bool operator ==(Object other) =>
       other is _MicData &&
       other.isMicMuted == isMicMuted &&
-      other.isHostMuted == isHostMuted;
+      other.isHostMuted == isHostMuted &&
+      other.isSeated == isSeated;
 
   @override
-  int get hashCode => isMicMuted.hashCode ^ isHostMuted.hashCode;
+  int get hashCode =>
+      isMicMuted.hashCode ^ isHostMuted.hashCode ^ isSeated.hashCode;
 }
 
 class _ChatData {

@@ -115,8 +115,8 @@ class RoomCubit extends Cubit<RoomState> {
       await _livekit.setMicEnabled(_shouldMicBeLive);
 
       if (micGranted) {
-        unawaited(RoomForegroundService.instance
-            .start(roomName: roomName ?? 'Room'));
+        unawaited(
+            RoomForegroundService.instance.start(roomName: roomName ?? 'Room'));
       }
     } catch (e) {
       DebugLogger.error('startVoice failed', error: e);
@@ -355,12 +355,14 @@ class RoomCubit extends Cubit<RoomState> {
     final next = _withSeats(s.seats, (seats) {
       // Vacate whatever we were on: one person, one seat.
       for (var i = 0; i < seats.length; i++) {
-        if (seats[i].userId == me) seats[i] = seats[i].copyWith(clearUser: true);
+        if (seats[i].userId == me) {
+          seats[i] = seats[i].copyWith(clearUser: true);
+        }
       }
       final idx = seats.indexWhere((x) => x.seatNo == seatNo);
       if (idx >= 0) {
-        seats[idx] = seats[idx]
-            .copyWith(userId: me, name: myName, avatar: myAvatar, isMuted: false);
+        seats[idx] = seats[idx].copyWith(
+            userId: me, name: myName, avatar: myAvatar, isMuted: false);
       }
     });
 
@@ -378,7 +380,9 @@ class RoomCubit extends Cubit<RoomState> {
 
     final next = _withSeats(s.seats, (seats) {
       for (var i = 0; i < seats.length; i++) {
-        if (seats[i].userId == me) seats[i] = seats[i].copyWith(clearUser: true);
+        if (seats[i].userId == me) {
+          seats[i] = seats[i].copyWith(clearUser: true);
+        }
       }
     });
 
