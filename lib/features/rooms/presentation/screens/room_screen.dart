@@ -568,9 +568,9 @@ class _LeaveConfirmDialog extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
-          color: AppColors.cardBg,
+          color: const Color(0xFF130E26), // Dark purple background
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: AppColors.fieldBorder),
+          border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.15)), // Gold border
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -598,12 +598,15 @@ class _LeaveConfirmDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Text('Leave Room?', style: AppTextStyles.heading3),
+            Text(
+              'Leave Room?',
+              style: AppTextStyles.heading3.copyWith(color: const Color(0xFFFBBF24)), // Gold title
+            ),
             const SizedBox(height: 8),
             Text(
               "You'll leave this watch party.\nOthers can still continue without you.",
               style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.grey,
+                color: Colors.white.withValues(alpha: 0.7), // White subtitle
                 height: 1.5,
               ),
               textAlign: TextAlign.center,
@@ -617,15 +620,15 @@ class _LeaveConfirmDialog extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       decoration: BoxDecoration(
-                        color: AppColors.lightBg,
+                        color: const Color(0xFF1E173C), // Dark button background
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.fieldBorder),
+                        border: Border.all(color: const Color(0x33FBBF24)), // Gold border
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         'Stay',
                         style: AppTextStyles.button
-                            .copyWith(color: AppColors.white),
+                            .copyWith(color: const Color(0xFFFBBF24), fontWeight: FontWeight.w600), // Gold text
                       ),
                     ),
                   ),
@@ -655,7 +658,7 @@ class _LeaveConfirmDialog extends StatelessWidget {
                       child: Text(
                         'Leave',
                         style:
-                            AppTextStyles.button.copyWith(color: Colors.white),
+                            AppTextStyles.button.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),

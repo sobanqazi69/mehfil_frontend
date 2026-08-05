@@ -203,14 +203,10 @@ class _CreateRoomFab extends StatelessWidget {
     return GestureDetector(
       onTap: () => _createRoom(context),
       child: Container(
-        width: 56,
-        height: 56,
+        width: 68,
+        height: 68,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFBBF24), Color(0xFFD97706)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: const Color(0xFFFBBF24), // Solid gold color, no gradient
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
@@ -221,7 +217,7 @@ class _CreateRoomFab extends StatelessWidget {
             ),
           ],
         ),
-        child: const Icon(Icons.add_rounded, color: Colors.black, size: 28),
+        child: const Icon(Icons.add_rounded, color: Colors.black, size: 32),
       ),
     );
   }
