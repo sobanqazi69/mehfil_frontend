@@ -101,6 +101,15 @@ class RoomRepository {
     _socket.emit('room:join', {'roomId': roomId, 'userId': userId});
   }
 
+  /// Notified after every successful socket (re)connect. The server ties room
+  /// membership to the socket id and drops it on `disconnecting`, so a client
+  /// that reconnects has to re-join or it will never hear from the room again.
+  void onSocketConnect(VoidCallback callback) =>
+      _socket.addConnectHandler(callback);
+
+  void offSocketConnect(VoidCallback callback) =>
+      _socket.removeConnectHandler(callback);
+
   void leaveRoom(int roomId, int userId) {
     _socket.emit('room:leave', {'roomId': roomId, 'userId': userId});
   }
@@ -263,12 +272,29 @@ class RoomRepository {
     _socket.off('mic:blocked');
   }
 
-  String _parseError(DioException e) =>
-      MapUtils.handleNullableStringKey(
-        MapUtils.asMap(e.response?.data),
-        'message',
-      ) ??
-      'Something went wrong.';
+  String _parseError(DioException e) {
+    final serverMessage = MapUtils.handleNullableStringKey(
+      MapUtils.asMap(e.response?.data),
+      'message',
+    );
+    if (serverMessage != null) return serverMessage;
+
+    // No response at all means we never reached the server. Calling that
+    // "something went wrong" sends people hunting for a bug in the app when
+    // the real answer is that the phone was offline.
+    if (e.response == null) {
+      switch (e.type) {
+        case DioExceptionType.connectionError:
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          return 'No internet connection.';
+        default:
+          break;
+      }
+    }
+    return 'Something went wrong.';
+  }
 }
 
 typedef VoidCallback = void Function();

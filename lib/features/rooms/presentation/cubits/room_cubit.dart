@@ -60,6 +60,7 @@ class RoomCubit extends Cubit<RoomState> {
 
       _repo.joinRoom(roomId, userId);
       _listenToSocketEvents();
+      _repo.onSocketConnect(_onSocketReconnected);
 
       // Voice is best-effort and must never block entering the room, so fire it
       // without awaiting: chat/video are usable instantly while audio connects.
@@ -126,6 +127,23 @@ class RoomCubit extends Cubit<RoomState> {
       _pendingLevels = null;
       if (pending != null) speakingLevels.value = pending;
     });
+  }
+
+  /// The socket came back with a new id. The server cleared our membership on
+  /// `disconnecting`, so without re-joining we would sit in a room that no
+  /// longer knows we exist: no chat, no video sync, no roster updates — and
+  /// nothing visibly wrong until the user tried to interact.
+  void _onSocketReconnected() {
+    if (isClosed) return;
+    final roomId = _roomId;
+    final userId = _userId;
+    if (roomId == null || userId == null) return;
+
+    DebugLogger.socket('reconnected → re-joining room $roomId');
+    _repo.joinRoom(roomId, userId);
+    // Our mute state lives on the server keyed to the old connection; push the
+    // live mic back to whatever it should be once voice is up again.
+    _syncMic();
   }
 
   void _listenToSocketEvents() {
@@ -309,6 +327,7 @@ class RoomCubit extends Cubit<RoomState> {
 
   void _onKicked() {
     if (isClosed) return;
+    _repo.offSocketConnect(_onSocketReconnected);
     _repo.offRoomListeners();
     _stopVoice();
     emit(const RoomKicked());
@@ -333,10 +352,12 @@ class RoomCubit extends Cubit<RoomState> {
   }
 
   Future<void> leaveRoom(int userId) async {
+    _repo.offSocketConnect(_onSocketReconnected);
     if (_roomId != null) {
       _repo.leaveRoom(_roomId!, userId);
       _repo.offRoomListeners();
     }
+    _roomId = null;
     _stopVoice();
     if (!isClosed) emit(const RoomInitial());
   }
@@ -358,6 +379,7 @@ class RoomCubit extends Cubit<RoomState> {
 
   @override
   Future<void> close() {
+    _repo.offSocketConnect(_onSocketReconnected);
     _repo.offRoomListeners();
     _stopVoice();
     _levelsThrottle?.cancel();

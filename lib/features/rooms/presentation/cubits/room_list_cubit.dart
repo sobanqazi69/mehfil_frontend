@@ -19,7 +19,12 @@ class RoomListCubit extends Cubit<RoomListState> {
       if (!isClosed) emit(RoomListLoaded(rooms: rooms));
     } catch (e) {
       DebugLogger.error('loadRooms failed', error: e);
-      if (!isClosed) emit(RoomListError(e.toString()));
+      if (isClosed) return;
+      // A refresh the user never asked for must not replace good data with an
+      // error screen or fire a snackbar. This is what surfaced "Something went
+      // wrong" on resume: the 30s poll fires while backgrounded, with no radio.
+      if (silent && state is RoomListLoaded) return;
+      emit(RoomListError(e.toString()));
     }
   }
 
@@ -33,7 +38,9 @@ class RoomListCubit extends Cubit<RoomListState> {
       if (!isClosed) emit(RoomListLoaded(rooms: rooms));
     } catch (e) {
       DebugLogger.error('loadMyRooms failed', error: e);
-      if (!isClosed) emit(RoomListError(e.toString()));
+      if (isClosed) return;
+      if (silent && state is RoomListLoaded) return;
+      emit(RoomListError(e.toString()));
     }
   }
 

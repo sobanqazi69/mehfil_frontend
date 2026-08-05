@@ -1,3 +1,5 @@
+import 'dart:io' show SocketException;
+
 import 'package:dio/dio.dart';
 import '../constants/api_endpoints.dart';
 import '../services/secure_storage_service.dart';
@@ -21,6 +23,7 @@ class ApiClient {
       _storage,
       refreshUrl ?? ApiEndpoints.refreshToken,
     ));
+    _dio.interceptors.add(_RetryInterceptor(_dio));
     _dio.interceptors.add(LogInterceptor(
       requestBody: true,
       responseBody: true,
@@ -146,5 +149,51 @@ class _AuthInterceptor extends Interceptor {
     options.headers['Authorization'] = 'Bearer $token';
     options.extra['__didRetry'] = true;
     return _dio.fetch(options);
+  }
+}
+
+/// Retries requests that provably never reached the server.
+///
+/// Android suspends the radio for backgrounded apps, so the first call after a
+/// resume routinely dies on DNS ("Failed host lookup") a fraction of a second
+/// before connectivity is actually back. One short retry turns that into a
+/// non-event instead of an error snackbar the user can do nothing about.
+class _RetryInterceptor extends Interceptor {
+  final Dio _dio;
+
+  static const _delays = [
+    Duration(milliseconds: 600),
+    Duration(milliseconds: 1500),
+  ];
+
+  _RetryInterceptor(this._dio);
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    if (!_neverLanded(err)) return handler.next(err);
+
+    final attempt = (err.requestOptions.extra['__netRetry'] as int?) ?? 0;
+    if (attempt >= _delays.length) return handler.next(err);
+
+    await Future.delayed(_delays[attempt]);
+
+    final options = err.requestOptions;
+    options.extra['__netRetry'] = attempt + 1;
+    try {
+      return handler.resolve(await _dio.fetch(options));
+    } catch (e) {
+      return handler.next(e is DioException ? e : err);
+    }
+  }
+
+  /// Only errors where no connection was ever established, which makes a retry
+  /// safe for any HTTP method. A receive timeout is excluded on purpose: the
+  /// server may already have acted on the request, so replaying a POST there
+  /// could double-create.
+  bool _neverLanded(DioException err) {
+    if (err.response != null) return false;
+    return err.type == DioExceptionType.connectionError ||
+        err.type == DioExceptionType.connectionTimeout ||
+        (err.type == DioExceptionType.unknown && err.error is SocketException);
   }
 }

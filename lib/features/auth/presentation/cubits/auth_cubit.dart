@@ -132,6 +132,8 @@ class AuthCubit extends Cubit<AuthState> {
 
   Future<void> _connectSocket() async {
     final token = await _storage.getAccessToken();
-    if (token != null) _socket.connect(token);
+    // Hand over the storage too: reconnects re-read the token from it, so a
+    // session that outlives the access token still comes back cleanly.
+    if (token != null) _socket.connect(token, storage: _storage);
   }
 }

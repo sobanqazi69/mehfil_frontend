@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
+import '../../../../core/network/socket_service.dart';
 import '../../../../core/services/volume_service.dart';
 import '../../../../core/utils/map_utils.dart';
 import '../../../../core/widgets/app_snackbar.dart';
@@ -30,14 +31,24 @@ class RoomScreen extends StatefulWidget {
   State<RoomScreen> createState() => _RoomScreenState();
 }
 
-class _RoomScreenState extends State<RoomScreen> {
+class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
   final _chatCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   bool _hasLeft = false;
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || _hasLeft) return;
+    // The foreground service keeps the room alive while backgrounded, but an
+    // aggressive OEM or a long doze can still kill the socket without the
+    // client noticing. RoomCubit re-joins automatically once it is back up.
+    SocketService().ensureConnected();
+  }
+
+  @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final cubit = context.read<RoomCubit>();
     cubit.micBlocked = (message) {
       if (mounted) AppSnackbar.error(context, message);
@@ -137,6 +148,7 @@ class _RoomScreenState extends State<RoomScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _chatCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();

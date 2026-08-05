@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../../config/theme/app_colors.dart';
 import '../../../../config/theme/app_text_styles.dart';
+import '../../../../core/network/socket_service.dart';
 import '../../../../core/widgets/app_snackbar.dart';
 import '../../data/models/room_model.dart';
 import '../cubits/room_list_cubit.dart';
@@ -33,6 +34,7 @@ class _BrowseRoomsScreenState extends State<BrowseRoomsScreen>
   }
 
   void _startRefreshTimer() {
+    _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) context.read<RoomListCubit>().refresh(silent: true);
     });
@@ -40,9 +42,23 @@ class _BrowseRoomsScreenState extends State<BrowseRoomsScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && mounted) {
+    if (!mounted) return;
+
+    if (state == AppLifecycleState.resumed) {
+      // The OS may have dropped the socket while we were away without ever
+      // telling the client, so force the check rather than waiting for the
+      // next failed emit.
+      SocketService().ensureConnected();
+      _startRefreshTimer();
       context.read<RoomListCubit>().refresh(silent: true);
+      return;
     }
+
+    // Dart timers keep running while the app is backgrounded, but Android
+    // suspends the radio — so every tick was a guaranteed DNS failure queuing
+    // up an error for the moment the user came back.
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
   }
 
   @override
